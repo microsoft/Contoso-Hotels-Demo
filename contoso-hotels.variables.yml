@@ -1,0 +1,423 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+variables:
+- name: location
+  value: $(sitePrimaryLocation)
+
+- name: workspaceName
+  value: $(prefix)-LA$(suffix)
+- name: workspaceRGName
+  value: $(prefix)-OpsRG-Pri$(suffix)
+
+
+#- name: workspaceResourceId
+#  value: '/subscriptions/e045cc0b-0eea-47e8-9176-28c8d2c109ac/resourceGroups/CH-OpsRG-Pri-Dev/providers/Microsoft.OperationalInsights/workspaces/CH-LA-Dev'
+- name: networkWatcherName
+  value: $(prefix)-NetworkWatcher$(suffix)
+
+- name: hiddenTitle
+  value: Contoso Hotels $(suffix)
+- name: onboardingExampleVM
+  value: JBOXVM10
+- name: creator
+  value: Contoso
+- name: owner
+  value: Microsoft
+- name: recoveryPlanName
+  value: webBackend
+- name: sitePrimarySuffix
+  value: Pri
+- name: siteSecondarySuffix
+  value: Sec
+- name: sitePrimaryAddressPrefix
+  value: 10.1.0.0/16
+- name: siteSecondaryAddressPrefix
+  value: 10.2.0.0/16
+- name: vNetEUSvnetSqlSubnetMask
+  value: 255.255.255.0
+- name: vNetSCUSvnetSqlSubnetMask
+  value: 255.255.255.0
+  
+- name: appSiteName #BackEnd
+  value: SmartHotel.Registration.Wcf
+- name: wfSiteName #FrontEnd
+  value: SmartHotel.Registration.Web
+
+
+#hardcode
+- name: templatesContainerName
+  value: devfilesdev
+- name: sh360FilesContainerName
+  value: $(templatesContainerName)
+- name: sh360FilesSAName
+  value: chprereq
+
+
+- name: templatesStorageAccountName
+  value: $(stagingStorageAccount)
+- name: stagingRG
+  value: $(prefix)-StagingRG$(suffix)
+
+
+
+#should be automated
+- name: modernAppClusterResourceId 
+  value: /subscriptions/e045cc0b-0eea-47e8-9176-28c8d2c109ac/resourcegroups/SH360-BackendRG-Dev/providers/Microsoft.ContainerService/managedClusters/SH360-AKS-Dev
+- name: modernAppWorkspaceResourceId
+  value: /subscriptions/e045cc0b-0eea-47e8-9176-28c8d2c109ac/resourceGroups/SH360-BackendRG-Dev/providers/Microsoft.OperationalInsights/workspaces/SH360-LA-Dev
+
+
+- name: modernAppClusterResourceId 
+  value: ""
+- name: modernAppWorkspaceResourceId
+  value: ""
+
+- name: artifactsLocation
+  value: https://$(stagingStorageAccount).blob.core.windows.net/$(templatesContainerName)
+
+###################################################
+- name: stagingContainer
+  value: artifacts
+- name: privatefilesContainer
+  value: privatefiles
+
+- name: sitePrimaryInfraRGName
+  value: $(prefix)-InfraRG-Pri$(suffix)
+- name: sitePrimaryOpsRGName
+  value: $(prefix)-OpsRG-Pri$(suffix)
+- name: sitePrimaryRetailRGName
+  value: $(prefix)-RetailRG-Pri$(suffix)
+- name: siteSecondaryInfraRGName
+  value: $(prefix)-InfraRG-Sec$(suffix)
+- name: siteSecondaryOpsRGName
+  value: $(prefix)-OpsRG-Sec$(suffix)
+- name: siteSecondaryRetailRGName
+  value: $(prefix)-RetailRG-Sec$(suffix)
+
+- name: recoveryVaultName
+  value: $(prefix)-RV-Pri$(suffix)
+
+- name: addsDomainName
+  value: na.contosohotels.com
+
+- name: lowPrefix
+  value: $[ lower(variables['prefix']) ]
+- name: lowSuffix
+  value: $[ lower(replace(variables.suffix, '-', '')) ]
+- name: lowSitePrimarySuffix
+  value: $[ lower(variables['sitePrimarySuffix']) ]
+- name: lowSiteSecondarySuffix
+  value: $[ lower(variables['siteSecondarySuffix']) ]
+
+
+- name: resourceNames
+  value: '@{
+    primaryLocation = "$(sitePrimaryLocation)";;
+    secondaryLocation = "$(siteSecondaryLocation)";
+
+    stagingRGName = "$(prefix)-StagingRG$(suffix)";
+    stagingStorageAccount = "$(stagingStorageAccount)";
+    stagingStorageAccountName = "$(stagingStorageAccount)";
+    stagingContainerName = "$(stagingContainer)";
+    privatefilesContainerName = "$(privatefilesContainer)";
+
+    primaryInfraRGName = "$(prefix)-InfraRG-$(sitePrimarySuffix)$(suffix)";
+    primaryOpsRGName = "$(prefix)-OpsRG-$(sitePrimarySuffix)$(suffix)";
+    primaryRetailRGName = "$(prefix)-RetailRG-$(sitePrimarySuffix)$(suffix)";
+    secondaryInfraRGName = "$(prefix)-InfraRG-$(siteSecondarySuffix)$(suffix)";
+    secondaryOpsRGName = "$(prefix)-OpsRG-$(siteSecondarySuffix)$(suffix)";
+    secondaryRetailRGName = "$(prefix)-RetailRG-$(siteSecondarySuffix)$(suffix)"
+
+    vmWareSolutionRGName = "$(prefix)-AVS$(suffix)";
+    liftNShiftRGName = "$(prefix)-LiftNShiftRG$(suffix)";
+    MigrateSQLRGName = "$(prefix)-MigrateSQLRG$(suffix)"
+
+    primaryDmzSubnetNsgName = "$(prefix)-DMZ-NSG-$(sitePrimarySuffix)$(suffix)";
+    primaryAppGateSubnetNsgName = "$(prefix)-ApplicationGateway-NSG-$(sitePrimarySuffix)$(suffix)";
+    primaryAddsSubnetNsgName = "$(prefix)-ADDS-NSG-$(sitePrimarySuffix)$(suffix)";
+    primaryAppFESubnetNsgName = "$(prefix)-AppFrontEnd-NSG-$(sitePrimarySuffix)$(suffix)";
+    primaryAppBESubnetNsgName = "$(prefix)-AppBackEnd-NSG-$(sitePrimarySuffix)$(suffix)";
+    primarySqlSubnetNsgName = "$(prefix)-SqlServer-NSG-$(sitePrimarySuffix)$(suffix)";
+    secondaryDmzSubnetNsgName = "$(prefix)-DMZ-NSG-$(siteSecondarySuffix)$(suffix)";
+    secondaryAppGateSubnetNsgName = "$(prefix)-ApplicationGateway-NSG-$(siteSecondarySuffix)$(suffix)";
+    secondaryAddsSubnetNsgName = "$(prefix)-ADDS-NSG-$(siteSecondarySuffix)$(suffix)";
+    secondaryAppFESubnetNsgName = "$(prefix)-AppFrontEnd-NSG-$(siteSecondarySuffix)$(suffix)";
+    secondaryAppBESubnetNsgName = "$(prefix)-AppBackEnd-NSG-$(siteSecondarySuffix)$(suffix)";
+    secondarySqlSubnetNsgName = "$(prefix)-SqlServer-NSG-$(siteSecondarySuffix)$(suffix)";
+
+    primaryVnetName = "$(prefix)-VNET-$(sitePrimarySuffix)$(suffix)";
+    secondaryVnetName = "$(prefix)-VNET-$(siteSecondarySuffix)$(suffix)";
+
+    dmzSubnetName = "DMZ";
+    appGateSubnetName = "ApplicationGateway";
+    addsSubnetName = "ADDS";
+    appFESubnetName = "AppFrontEnd";
+    appBESubnetName = "AppBackEnd";
+    sqlSubnetName = "SqlServer";
+    bastionSubnetName = "AzureBastionSubnet";
+
+    primaryAutomationAccountName = "$(prefix)-AA-$(sitePrimarySuffix)$(suffix)";
+    secondaryAutomationAccountName = "$(prefix)-AA-$(siteSecondarySuffix)$(suffix)";
+
+    workspaceName = "$(prefix)-LA$(suffix)";
+
+    appServiceName = "$(prefix)-ContosoWebAppSvc-$(sitePrimarySuffix)$(suffix)";
+    appServicePlanName = "$(prefix)-ContosoWebAppSvcPlan-$(sitePrimarySuffix)$(suffix)";
+
+    addsDomainName = "$(addsDomainName)";
+
+    primaryKeyVaultName = "$(prefix)-KV-$(sitePrimarySuffix)$(suffix)";
+    secondaryKeyVaultName = "$(prefix)-KV-$(siteSecondarySuffix)$(suffix)";
+    primaryRecoveryVaultName = "$(prefix)-RV-$(sitePrimarySuffix)$(suffix)";
+    secondaryRecoveryVaultName = "$(prefix)-RV-$(siteSecondarySuffix)$(suffix)";
+
+    jbox00VmName = "$(prefix)-JBOXVM00$(suffix)";
+    jbox00ComputerName = "JBOXVM00";
+    jbox00VmIp = "10.1.0.10";
+    jbox01VmName = "$(prefix)-JBOXVM10$(suffix)";
+    jbox01ComputerName = "JBOXVM10";
+    jbox01VmIp = "10.2.0.10";
+
+    primaryAddsASetName = "$(prefix)-DCASET-$(sitePrimarySuffix)$(suffix)";
+    secondaryAddsASetName = "$(prefix)-DCASET-$(siteSecondarySuffix)$(suffix)";
+    dc00VmName = "$(prefix)-DCVM00$(suffix)";
+    dc00ComputerName = "DCVM00";
+    dc00VmIp = "10.1.2.20";
+    dc01VmName = "$(prefix)-DCVM01$(suffix)";
+    dc01ComputerName = "DCVM01";
+    dc01VmIp = "10.1.2.21";
+    dc02VmName = "$(prefix)-DCVM10$(suffix)";
+    dc02ComputerName = "DCVM02";
+    dc02VmIp = "10.2.2.20";
+    dc03VmName = "$(prefix)-DCVM11$(suffix)";
+    dc03ComputerName = "DCVM03";
+    dc03VmIp = "10.2.2.21";
+
+    primarySqlASetName = "$(prefix)-SQLASET-$(sitePrimarySuffix)$(suffix)";
+    secondarySqlASetName = "$(prefix)-SQLASET-$(siteSecondarySuffix)$(suffix)";
+    sql00VmName = "$(prefix)-SQLVM00$(suffix)";
+    sql00ComputerName = "SQLVM00";
+    sql00VmIp = "10.1.5.10";
+    sql01VmName = "$(prefix)-SQLVM01$(suffix)";
+    sql01ComputerName = "SQLVM01";
+    sql01VmIp = "10.1.5.11";
+    sql02VmName = "$(prefix)-SQLVM10$(suffix)";
+    sql02ComputerName = "SQLVM02";
+    sql02VmIp = "10.2.5.10";
+    witnessStorageAccountName = "$(lowPrefix)sqlcloudwit$(lowSuffix)";
+    sqlPrimaryNlbName = "$(prefix)-SQLNLB-$(sitePrimarySuffix)$(suffix)";
+    sqlPrimaryNlbIp = "$(sqlPrimaryNlbIpAddress)";
+    sqlSecondaryNlbName = "$(prefix)-SQLNLB-$(siteSecondarySuffix)$(suffix)";
+    sqlSecondaryNlbIp = "$(sqlSecondaryNlbIpAddress)";
+    sqlClusterIpAddress = "10.1.5.31";
+    sqlServerName = "$(sqlAgListenerName)";
+
+    primaryAppBEASetName = "$(prefix)-AppBEASET-$(sitePrimarySuffix)$(suffix)";
+    secondaryAppBEASetName = "$(prefix)-AppBEASET-$(siteSecondarySuffix)$(suffix)";
+    be00VmName = "$(prefix)-AppBEVM00$(suffix)";
+    be00ComputerName = "APPBEVM00";
+    be00VmIp = "10.1.4.14";
+    be01VmName = "$(prefix)-AppBEVM01$(suffix)";
+    be01ComputerName = "APPBEVM01";
+    be01VmIp = "10.1.4.15";
+    bePrimaryNlbName = "$(prefix)-AppBENLB-$(sitePrimarySuffix)$(suffix)";
+    bePrimaryNlbIp = "10.1.4.10";
+    beSecondaryNlbName = "$(prefix)-AppBENLB-$(siteSecondarySuffix)$(suffix)";
+    beSecondaryNlbIp = "10.2.4.10";
+
+    backendAppSiteName = "SmartHotel.Registration.Wcf";
+    frontendAppSiteName = "SmartHotel.Registration.Web";
+
+    primaryAppInsightsName = "$(prefix)-AppInsights-$(sitePrimarySuffix)$(suffix)";
+    secondaryAppInsightsName = "$(prefix)-AppInsights-$(siteSecondarySuffix)$(suffix)";
+
+    fePrimaryAppGatewayName = "$(prefix)-AppFEAppGate-$(sitePrimarySuffix)$(suffix)";
+    feSecondaryAppGatewayName = "$(prefix)-AppFEAppGate-$(siteSecondarySuffix)$(suffix)";
+    feAppGatewayDomainNameLabel = "$(lowPrefix)contosohotels$(lowSuffix)";
+
+    fePrimaryVMSSName = "$(prefix)-AppFEVMSS-$(sitePrimarySuffix)$(suffix)";
+    feSecondaryVMSSName = "$(prefix)-AppFEVMSS-$(siteSecondarySuffix)$(suffix)";
+    feComputerNamePrefix = "AppFE";
+
+    trafficManagerName = "$(prefix)-AppFETM$(suffix)";
+    trafficManagerDnsName = "$(lowPrefix)contosohotelstm$(lowSuffix)";
+
+    mimikatzVmName = "$(prefix)-VICTIMVM$(suffix)";
+    mimikatzComputerName = "VICTIMVM";
+    linuxVmName = "$(prefix)-UBUNTUVM$(suffix)";
+    linuxComputerName = "UBUNTUVM";
+
+    aadConnVmName = "$(prefix)-AADCONNVM$(suffix)";
+    aadConnComputerName = "AADCON";
+    aadConnVmIp = "10.1.2.30";
+
+    asrStorageAccountName = "$(lowPrefix)asrcachesa$(lowSiteSecondarySuffix)$(lowSuffix)";
+    asrRecoveryPlanName = "BackendAppRP";
+
+    primaryDiagStorageAccountName = "$(lowPrefix)diagsa$(lowSitePrimarySuffix)$(lowSuffix)";
+    secondaryDiagStorageAccountName = "$(lowPrefix)diagsa$(lowSiteSecondarySuffix)$(lowSuffix)";
+
+    loadFunctionName = "$(prefix)-TrafficLoadFunc$(suffix)";
+    loadFunctionSvcPlanName = "$(prefix)-TrafficLoadFuncSvcPlan$(suffix)";
+    loadFunctionStorageAccountName = "$(lowPrefix)tloadfuncsa$(lowSitePrimarySuffix)$(lowSuffix)";
+  }'
+
+# Cost Management 
+- name: budgetName
+  value: ContosoBudget
+- name: budgetAmount
+  value: 3000
+
+# SQL Server AlwaysOn
+- name: sqlAgListenerName
+  value: sh360DB
+- name: sqlPrimaryNlbIpAddress
+  value: 10.1.5.30
+- name: sqlSecondaryNlbIpAddress
+  value: 10.2.5.30
+
+
+
+- name: dscConfigurations
+  value: '@(
+    @{
+      name = "EnsureFirewall";
+      parameters = @{
+        ServiceName = "MpsSvc"
+      }
+    };
+    @{
+      name = "DeployMimikatz";
+      parameters = @{
+        _artifactsStorageAccountName = "$(stagingStorageAccount)";
+        privateArtifactsContainer = "$(privatefilesContainer)";
+        stagingSAKey = "stagingSACredential";
+        securityResearchToolsBlob = "mimikatzDemoArtifacts";
+      }
+    };
+    @{
+      name = "CreateADDSForest";
+      parameters = @{
+        domainName = "$(addsDomainName)";
+        domainCredential = "domainCredential";
+        dbServerName = "$(sqlAgListenerName)";
+        primaryDbServerIpAddress = "$(sqlPrimaryNlbIpAddress)";
+        secondaryDbServerIpAddress = "$(sqlSecondaryNlbIpAddress)"
+      }
+    };
+    @{
+      name = "AddDCtoDomain";
+      parameters = @{
+        domainName = "$(addsDomainName)";
+        domainCredential = "domainCredential"
+      }
+    }
+  )'
+
+- name: environment
+  value: $[ coalesce(replace(variables.suffix, '-', ''), 'Prod') ]
+
+- name: tags  
+  value: '@{
+    "staging" = @{
+      "Demo_Environment" = "$(environment)";
+      "Scenario" = "Infra";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "primaryRetail" = @{
+      "Demo_Cost_Centre" = "2000222";
+      "Demo_Application" = "Azure_Commerce";
+      "Demo_Team" = "Red";
+      "Demo_Business_Unit" = "Sales";
+      "Demo_Environment" = "Prod";
+      "Scenario" = "Retail";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "primaryInfra" = @{
+      "Demo_Cost_Centre" = "1000111";
+      "Demo_Application" = "Azure_Infra";
+      "Demo_Team" = "Blue";
+      "Demo_Business_Unit" = "Sales";
+      "Demo_Environment" = "Prod";
+      "Scenario" = "Infra";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "secondaryInfra" = @{
+      "Demo_Cost_Centre" = "2000222";
+      "Demo_Application" = "Azure_Infra";
+      "Demo_Team" = "Red";
+      "Demo_Business_Unit" = "Sales";
+      "Demo_Environment" = "Dev";
+      "Scenario" = "Infra";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "primaryOps" = @{
+      "Demo_Cost_Centre" = "3000333";
+      "Demo_Application" = "Azure_Analytics";
+      "Demo_Team" = "Green";
+      "Demo_Business_Unit" = "Sales";
+      "Demo_Environment" = "Dev";
+      "Scenario" = "Ops";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "secondaryOps" = @{
+      "Demo_Cost_Centre" = "3000333";
+      "Demo_Application" = "Azure_Analytics";
+      "Demo_Team" = "Red";
+      "Demo_Business_Unit" = "Finops";
+      "Demo_Environment" = "QA";
+      "Scenario" = "Ops";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    };
+    "secondaryRetail" = @{
+      "Demo_Cost_Centre" = "3000333";
+      "Demo_Application" = "Azure_Analytics";
+      "Demo_Team" = "Red";
+      "Demo_Business_Unit" = "Finops";
+      "Demo_Environment" = "QA";
+      "Scenario" = "Ops";
+      "Owner" = "$(owner)";
+      "Creator" = "$(creator)"
+    }
+  }'
+
+
+- name: resourceProviders
+  value: '@(
+    "Microsoft.Resources",
+    "Microsoft.RecoveryServices",
+    "Microsoft.Network",
+    "Microsoft.Automation",
+    "Microsoft.Insights",
+    "Microsoft.Compute",
+    "Microsoft.Storage",
+    "Microsoft.OperationalInsights",
+    "Microsoft.OperationsManagement",
+    "Microsoft.KeyVault",
+    "Microsoft.Portal",
+    "Microsoft.Authorization",
+    "Microsoft.ContainerService",
+    "Microsoft.ContainerRegistry",
+    "Microsoft.ServiceBus",
+    "Microsoft.Sql",
+    "Microsoft.ChangeAnalysis",
+    "Microsoft.Web",
+    "Microsoft.SqlVirtualMachine",
+    "Microsoft.Blueprint"
+  )'
+
+#resource providers
+- name: resourceProviderFeatures
+  value: '@(
+    @{
+      "FeatureName" = "AIWorkspacePreview";
+      "ProviderNamespace" = "microsoft.insights"
+    }
+  )'

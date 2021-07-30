@@ -1,0 +1,14 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "version": "2.0",
+    "logging": {
+        "applicationInsights": {
+            "samplingExcludedTypes": "Request",
+            "samplingSettings": {
+                "isEnabled": true
+            }
+        }
+    }
+}

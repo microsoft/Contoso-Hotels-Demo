@@ -1,0 +1,27 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+variables:
+- name: prefix
+  value: CH1
+- name: suffix
+  value: ''
+- name: azureSubscriptionEndpoint
+  value: 'Contoso Hotels Tenant - Production'
+
+- name: stagingSubscriptionEndpoint
+  value: 'Contoso Hotels Tenant - Pre Prod'
+- name: stagingKeyVaultRGName
+  value: $(prefix)-StagingRG-Dev
+- name: stagingKeyVaultName
+  value: $(prefix)-StagingKV-Dev
+- name: stagingStorageAccount
+  value: ${{ lower(variables['prefix']) }}stagingsa${{ lower(replace(variables['suffix'], '-', '')) }}
+
+- name: sitePrimaryLocation
+  value: eastus
+- name: siteSecondaryLocation
+  value: westus2
+
+- name: applicationGatewayDomainNameLabel
+  value: contosohotels1${{ lower( replace(variables['suffix'], '-', '') ) }}

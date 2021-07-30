@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.757
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHotel.Registration.Web", "SmartHotel.Registration.Web.csproj", "{7DE59C01-0994-4315-B846-1BB8F322D495}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHotel.Registration.Wcf", "..\SmartHotel.Registration.Wcf\SmartHotel.Registration.Wcf.csproj", "{0CCB6791-5392-4231-BD06-154C64F7BD51}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7DE59C01-0994-4315-B846-1BB8F322D495}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DE59C01-0994-4315-B846-1BB8F322D495}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DE59C01-0994-4315-B846-1BB8F322D495}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DE59C01-0994-4315-B846-1BB8F322D495}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CCB6791-5392-4231-BD06-154C64F7BD51}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CCB6791-5392-4231-BD06-154C64F7BD51}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CCB6791-5392-4231-BD06-154C64F7BD51}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CCB6791-5392-4231-BD06-154C64F7BD51}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CB03002A-2EBF-426F-A771-A81CC8712E95}
+	EndGlobalSection
+EndGlobal
