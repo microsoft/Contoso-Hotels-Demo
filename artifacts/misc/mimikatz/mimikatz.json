@@ -1,0 +1,121 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "resourceNames": {
+         "type": "object"
+      },
+      "adminUsername": {
+         "type": "string"
+      },
+      "adminPassword": {
+         "type": "securestring"
+      },
+      "_artifactsLocation": {
+         "type": "string"
+      },
+      "_artifactsLocationSasToken": {
+         "type": "securestring"
+      }
+   },
+   "variables": {
+      "location": "[parameters('resourceNames').primaryLocation]",
+      "vmTemplateLink": "[concat(parameters('_artifactsLocation'), 'common/vm.json', parameters('_artifactsLocationSasToken'))]",
+      "vmName": "[parameters('resourceNames').mimikatzVmName]",
+      "computerName": "[parameters('resourceNames').mimikatzComputerName]",
+      "dscConfigurationName": "DeployMimikatz",
+      "nodeConfigurationName": "[concat(variables('dscConfigurationName'), '.localhost')]",
+      "vmSize": "Standard_D2s_v3",
+      "imagePublisher": "MicrosoftWindowsServer",
+      "imageOffer": "WindowsServer",
+      "imageSku": "2016-Datacenter",
+      "domainName": "[parameters('resourceNames').addsDomainName]",
+      "diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]",
+      "subnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').dmzSubnetName)]",
+      "automationAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Automation/automationAccounts', parameters('resourceNames').primaryAutomationAccountName)]"
+   },
+   "resources": [
+      {
+         "name": "[concat('Deploy_', variables('vmName'))]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+               "uri": "[variables('vmTemplateLink')]"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('location')]"
+               },
+               "vmName": {
+                  "value": "[variables('vmName')]"
+               },
+               "computerName": {
+                  "value": "[variables('computerName')]"
+               },
+               "vmSize": {
+                  "value": "[variables('vmSize')]"
+               },
+               "adminUsername": {
+                  "value": "[parameters('adminUsername')]"
+               },
+               "adminPassword": {
+                  "value": "[parameters('adminPassword')]"
+               },
+               "imagePublisher": {
+                  "value": "[variables('imagePublisher')]"
+               },
+               "imageOffer": {
+                  "value": "[variables('imageOffer')]"
+               },
+               "imageSKU": {
+                  "value": "[variables('imageSKU')]"
+               },
+               "diagStorageAccountId": {
+                  "value": "[variables('diagStorageAccountResourceId')]"
+               },
+               "subnetResourceId": {
+                  "value": "[variables('subnetResourceId')]"
+               }
+            }
+         }
+      },
+      {
+         "type": "Microsoft.Compute/virtualMachines/extensions",
+         "name": "[concat(variables('vmName'), '/', variables('dscConfigurationName'))]",
+         "apiVersion": "2020-06-01",
+         "location": "[variables('location')]",
+         "dependsOn": [
+            "[resourceId('Microsoft.Resources/deployments', concat('Deploy_', variables('vmName')))]"
+         ],
+         "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.77",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+               "wmfVersion": "latest",
+               "configurationArguments": {
+                  "RegistrationUrl" : "[reference(variables('automationAccountResourceId'), '2019-06-01').registrationUrl]",
+                  "NodeConfigurationName" : "[variables('nodeConfigurationName')]",
+                  "ConfigurationMode": "ApplyandAutoCorrect",
+                  "RebootNodeIfNeeded": true,
+                  "ActionAfterReboot": "ContinueConfiguration"
+               }
+            },
+            "protectedSettings": {
+               "configurationArguments": {
+                  "RegistrationKey": {
+                  "userName": "NOT_USED",
+                  "Password": "[listKeys(variables('automationAccountResourceId'), '2019-06-01').Keys[0].value]"
+                  }
+               }
+            }
+         }
+      }
+   ]
+}

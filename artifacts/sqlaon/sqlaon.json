@@ -1,0 +1,539 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+		"adminUsername": {
+			"type": "string"
+		},
+		"adminPassword": {
+			"type": "securestring"
+		},
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+	},
+	 "variables": {
+		"sites": [
+			{
+				"location": "[parameters('resourceNames').primaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').primaryRetailRGName]",
+				"availabilitySetName": "[parameters('resourceNames').primarySqlASetName]",
+				"nlbName": "[parameters('resourceNames').sqlPrimaryNlbName]",
+				"nlbIpAddress": "[parameters('resourceNames').sqlPrimaryNlbIp]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').sqlSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').primaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').primaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').sql00VmName]",
+						"computerName": "[parameters('resourceNames').sql00ComputerName]",
+						"ipAddress": "[parameters('resourceNames').sql00VmIp]",
+		                "AvailabilityMode": "SynchronousCommit",
+		                "FailoverMode": "Automatic"
+					},
+					{
+						"vmName": "[parameters('resourceNames').sql01VmName]",
+						"computerName": "[parameters('resourceNames').sql01ComputerName]",
+						"ipAddress": "[parameters('resourceNames').sql01VmIp]",
+		                "AvailabilityMode": "SynchronousCommit",
+		                "FailoverMode": "Automatic"
+					}
+				]
+			},
+			{
+				"location": "[parameters('resourceNames').secondaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').secondaryRetailRGName]",
+				"witnessStorageAccountName": "[parameters('resourceNames').witnessStorageAccountName]",
+				"availabilitySetName": "[parameters('resourceNames').secondarySqlASetName]",
+				"nlbName": "[parameters('resourceNames').sqlSecondaryNlbName]",
+				"nlbIpAddress": "[parameters('resourceNames').sqlSecondaryNlbIp]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').secondaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').sqlSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').secondaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').sql02VmName]",
+						"computerName": "[parameters('resourceNames').sql02ComputerName]",
+						"ipAddress": "[parameters('resourceNames').sql02VmIp]",
+						"AvailabilityMode": "AsynchronousCommit",
+						"FailoverMode": "Manual"
+					}
+				]
+			}
+		],
+        "agListenerIpAddresses": [
+            "[concat(parameters('resourceNames').sqlPrimaryNlbIp, '/255.255.255.0')]",
+            "[concat(parameters('resourceNames').sqlSecondaryNlbIp, '/255.255.255.0')]"
+        ]
+	},
+	"resources": [
+      	{
+			"name": "Deploy_WitnessStorageAccount",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"resourceGroup": "[parameters('resourceNames').secondaryRetailRGName]",
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[parameters('resourceNames').secondaryLocation]"
+					},
+					"name": {
+						"value": "[parameters('resourceNames').witnessStorageAccountName]"
+					}
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+						"name": {
+							"type": "string"
+						}
+					},
+					"resources": [
+						{
+							"type": "Microsoft.Storage/storageAccounts",
+							"name": "[parameters('name')]",
+							"apiVersion": "2021-04-01",
+							"location": "[parameters('location')]",
+							"sku": {
+								"name": "Standard_LRS"
+							},
+							"kind": "Storage"
+						}
+					]
+				}
+			}
+		},
+      	{
+			"name": "[concat('Deploy_SQL_to_site', copyIndex())]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "siteLoop",
+				"count": "[length(variables('sites'))]"
+			},
+			"resourceGroup": "[variables('sites')[copyIndex()].resourceGroupName]",
+			"dependsOn": [
+				"[resourceId(parameters('resourceNames').secondaryRetailRGName, 'Microsoft.Resources/deployments', 'Deploy_WitnessStorageAccount')]"
+			],
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('sites')[copyIndex()].location]"
+					},
+					"availabilitySetName": {
+						"value": "[variables('sites')[copyIndex()].availabilitySetName]"
+					},
+					"nlbName": {
+						"value": "[variables('sites')[copyIndex()].nlbName]"
+					},
+					"nlbIpAddress": {
+						"value": "[variables('sites')[copyIndex()].nlbIpAddress]"
+					},
+					"adminUsername": {
+						"value": "[parameters('adminUsername')]"
+					},
+					"adminPassword": {
+						"value": "[parameters('adminPassword')]"
+					},
+					"sqlServicePassword": {
+						"value": "[parameters('adminPassword')]"
+					},
+					"virtualMachines": {
+						"value": "[variables('sites')[copyIndex()].virtualMachines]"
+					},
+					"diagStorageAccountResourceId": {
+						"value": "[variables('sites')[copyIndex()].diagStorageAccountResourceId]"
+					},
+					"subnetResourceId": {
+						"value": "[variables('sites')[copyIndex()].subnetResourceId]"
+					},
+					"recoveryVaultName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultName]"
+					},
+					"recoveryVaultRGName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultRGName]"
+					},
+					"witnessStorageAccountResourceId": {
+						"value": "[resourceId(parameters('resourceNames').secondaryRetailRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').witnessStorageAccountName)]"
+					},
+					"addsDomainName": {
+						"value": "[parameters('resourceNames').addsDomainName]"
+					},
+					"clusterOwnerNode": {
+						"value": "[parameters('resourceNames').sql00ComputerName]"
+					},
+					"clusterIpAddress": {
+						"value": "[parameters('resourceNames').sqlClusterIpAddress]"
+					},
+					"sqlServerName": {
+						"value": "[parameters('resourceNames').sqlServerName]"
+					},
+					"agListenerIpAddresses": {
+						"value": "[variables('agListenerIpAddresses')]"
+					},
+					"scriptsLocationSAName": {
+						"value": "[parameters('resourceNames').stagingStorageAccountName]"
+					},
+					"scriptsLocationSAKey": {
+						"value": "[listKeys(resourceId(parameters('resourceNames').stagingRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').stagingStorageAccountName), '2021-04-01').keys[0].value]"
+					},
+					"scriptsLocationSAContainer": {
+						"value": "[parameters('resourceNames').stagingContainerName]"
+					},
+					"_artifactsLocation": {
+						"value": "[parameters('_artifactsLocation')]"
+					},
+					"_artifactsLocationSasToken": {
+						"value": "[parameters('_artifactsLocationSasToken')]"
+					}
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+						"availabilitySetName": {
+							"type": "string"
+						},
+						"nlbName": {
+							"type": "string"
+						},
+						"nlbIpAddress": {
+							"type": "string"
+						},
+						"adminUsername": {
+							"type": "string"
+						},
+						"adminPassword": {
+							"type": "securestring"
+						},
+						"sqlServiceUsername": {
+							"type": "string",
+							"defaultValue": "sqlservice"
+						},
+						"sqlServicePassword": {
+							"type": "securestring"
+						},
+						"virtualMachines": {
+							"type": "array"
+						},
+						"diagStorageAccountResourceId": {
+							"type": "string"
+						},
+						"subnetResourceId": {
+							"type": "string"
+						},
+						"recoveryVaultName": {
+							"type": "string"
+						},
+						"recoveryVaultRGName": {
+							"type": "string"
+						},
+						"witnessStorageAccountResourceId": {
+							"type": "string"
+						},
+						"addsDomainName": {
+							"type": "string"
+						},
+						"clusterIpAddress": {
+							"type": "string"
+						},
+						"clusterOwnerNode": {
+							"type": "string"
+						},
+						"agListenerIpAddresses": {
+							"type": "array"
+						},
+						"sqlServerName": {
+							"type": "string"
+						},
+						"scriptsLocationSAName": {
+							"type": "string"
+						},
+						"scriptsLocationSAKey": {
+							"type": "securestring"
+						},
+						"scriptsLocationSAContainer": {
+							"type": "string"
+						},
+						"_artifactsLocation": {
+							"type": "string"
+						},
+						"_artifactsLocationSasToken": {
+							"type": "securestring"
+						}
+					},
+					"variables": {
+						"vmTemplateLink": "[concat(parameters('_artifactsLocation'),'common/vm.json', parameters('_artifactsLocationSasToken'))]",
+						"lbTemplateLink": "[concat(parameters('_artifactsLocation'),'common/nlb.json', parameters('_artifactsLocationSasToken'))]"
+					},
+					"resources": [
+						{  
+							"apiVersion": "2020-06-01",
+							"type": "Microsoft.Compute/availabilitySets",
+							"location": "[parameters('location')]",
+							"name": "[parameters('availabilitySetName')]",
+							"properties": {  
+								"PlatformUpdateDomainCount": 2,
+								"PlatformFaultDomainCount": 2
+							},
+							"sku": {
+								"name": "Aligned"
+							}
+						},
+						{
+							"name": "[concat('Deploy_NLB_', parameters('nlbName'))]",
+							"type": "Microsoft.Resources/deployments",
+							"apiVersion": "2020-10-01",
+							"properties": {
+								"mode": "Incremental",
+								"templateLink": {
+									"uri": "[variables('lbTemplateLink')]"
+								},
+								"parameters": {
+									"location": {
+										"value": "[parameters('location')]"
+									},
+									"name": {
+										"value": "[parameters('nlbName')]"
+									},
+									"subnetId": {
+										"value": "[parameters('subnetResourceId')]"
+									},
+									"ipAddress": {
+										"value": "[parameters('nlbIpAddress')]"
+									},
+									"enableFloatingIP": {
+										"value": true
+									},
+									"frontendPort": {
+										"value": 1433
+									},
+									"probePort": {
+										"value": 59999
+									},
+									"sku": {
+										"value": "Basic"
+									}
+								}
+							}
+						},
+						{
+							"name": "[concat('Deploy_VM', copyIndex())]",
+							"type": "Microsoft.Resources/deployments",
+							"apiVersion": "2020-10-01",
+							"copy": {
+								"name": "virtualMachineLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]",
+								"[resourceId('Microsoft.Resources/deployments', concat('Deploy_NLB_', parameters('nlbName')))]"
+							],
+							"properties": {
+								"mode": "Incremental",
+								"templateLink": {
+									"uri": "[variables('vmTemplateLink')]"
+								},
+								"parameters": {
+									"location": {
+										"value": "[parameters('location')]"
+									},
+									"vmName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].vmName]"
+									},
+									"computerName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].computerName]"
+									},
+									"vmSize": {
+										"value": "Standard_D4s_v3"
+									},
+					                "vmDataDiskCount": {
+                    				    "value": 1
+                    				},
+									"vmDataDiskSize": {
+										"value": 128
+									},
+									"adminUsername": {
+										"value": "[parameters('adminUsername')]"
+									},
+									"adminPassword": {
+										"value": "[parameters('adminPassword')]"
+									},
+									"availabilitySetName": {
+										"value": "[parameters('availabilitySetName')]"
+									},
+									"imagePublisher": {
+										"value": "MicrosoftSQLServer"
+									},
+									"imageOffer": {
+										"value": "SQL2017-WS2016"
+									},
+									"imageSKU": {
+										"value": "Enterprise"
+									},
+									"diagStorageAccountId": {
+										"value": "[parameters('diagStorageAccountResourceId')]"
+									},
+									"subnetResourceId": {
+										"value": "[parameters('subnetResourceId')]"
+									},
+									"recoveryVaultName": {
+										"value": "[parameters('recoveryVaultName')]"
+									},
+									"recoveryVaultRGName": {
+										"value": "[parameters('recoveryVaultRGName')]"
+									},
+									"staticPrivateIpAddress": {
+										"value": "[parameters('virtualMachines')[copyIndex()].ipAddress]"
+									},
+									"domainToJoin": {
+										"value": "[parameters('addsDomainName')]"
+									},
+									"role": {
+										"value": "SQL"
+									},
+									"lbBEAddressPoolID": {
+										"value": "[reference(resourceId('Microsoft.Resources/deployments', concat('Deploy_NLB_', parameters('nlbName'))), '2020-10-01').outputs.lbBEAddressPoolID.value]"
+									}
+								}
+							}
+						},
+						{
+							"type": "Microsoft.Compute/virtualMachines/extensions",
+							"name": "[concat(parameters('virtualMachines')[copyIndex()].vmName, '/sqlPrep')]",
+							"apiVersion": "2020-06-01",
+							"location": "[parameters('location')]",
+							"copy": {
+								"name": "dscLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"virtualMachineLoop"
+							],
+							"properties": {
+								"publisher": "Microsoft.Powershell",
+								"type": "DSC",
+								"typeHandlerVersion": "2.71",
+								"autoUpgradeMinorVersion": true,
+								"forceUpdateTag": "v1",
+								"settings": {
+									"modulesUrl": "[concat(parameters('_artifactsLocation'), 'dsc/ConfigSQLAOn.zip', parameters('_artifactsLocationSasToken'))]",
+									"configurationFunction": "ConfigSQLAOn.ps1\\ConfigSQLAOn",
+									"properties": {
+										"domainName": "[parameters('addsDomainName')]",
+										"clusterName": "sqlc",
+										"clusterIpAddress": "[parameters('clusterIpAddress')]",
+										"clusterOwnerNode": "[parameters('ClusterOwnerNode')]",
+										"witnessStorageName": "[last(split(parameters('witnessStorageAccountResourceId'), '/'))]",
+										"witnessStorageKey": {
+											"userName": "PLACEHOLDER-DO-NOT-USE",
+											"password": "PrivateSettingsRef:witnessStorageKey"
+										},
+										"agName": "SQLag",
+										"agListenerName": "[parameters('sqlServerName')]",
+										"agListenerIpAddresses":"[parameters('agListenerIpAddresses')]",
+										"agListenerPort": 1433,
+										"DatabaseEnginePort": 1433,
+										"DatabaseMirrorPort": 5022,
+										"ProbePortNumber": 59999,
+										"AvailabilityMode": "[parameters('virtualMachines')[copyIndex()].AvailabilityMode]",
+										"FailoverMode": "[parameters('virtualMachines')[copyIndex()].FailoverMode]",
+										"isSecondarySite": "[equals(parameters('virtualMachines')[copyIndex()].FailoverMode, 'Manual')]",
+										"ScriptsLocationSAName": "[parameters('ScriptsLocationSAName')]",
+										"ScriptsLocationSAContainer": "[parameters('ScriptsLocationSAContainer')]",
+										"stagingSAKey": {
+											"userName": "PLACEHOLDER-DO-NOT-USE",
+											"password": "PrivateSettingsRef:stagingSAKey"
+										},
+										"adminCreds": {
+											"userName": "[parameters('adminUserName')]",
+											"password": "PrivateSettingsRef:adminPassword"
+										},
+										"sqlServiceCreds": {
+											"userName": "[parameters('sqlServiceUsername')]",
+											"password": "PrivateSettingsRef:sqlServicePassword"
+										}
+									}
+								},
+								"protectedSettings": {
+									"items": {
+										"adminPassword": "[parameters('adminPassword')]",
+										"sqlServicePassword": "[parameters('sqlServicePassword')]",
+										"witnessStorageKey": "[listKeys(parameters('witnessStorageAccountResourceId'), '2021-04-01').keys[0].value]",
+										"stagingSAKey": "[parameters('scriptsLocationSAKey')]"
+									}
+								}
+							}
+						},
+						{
+							"type": "Microsoft.SqlVirtualMachine/SqlVirtualMachines",
+							"name": "[parameters('virtualMachines')[copyIndex()].vmName]",
+							"apiVersion": "2017-03-01-preview",
+							"location": "[parameters('location')]",
+							"copy": {
+								"name": "sqlVmLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"dscLoop"
+							],
+							"properties": {
+								"virtualMachineResourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachines')[copyIndex()].vmName)]",
+								"sqlServerLicenseType": "AHUB",
+								"AutoPatchingSettings": {
+									"Enable": true,
+									"DayOfWeek": "Sunday",
+									"MaintenanceWindowStartingHour": 2,
+									"MaintenanceWindowDuration": 60
+								},
+								"KeyVaultCredentialSettings": {
+									"Enable": false
+								},
+								"ServerConfigurationsManagementSettings": {
+									"SQLConnectivityUpdateSettings": {
+										"ConnectivityType": "Public",
+										"Port": 1433,
+										"SQLAuthUpdateUserName": "[parameters('sqlServiceUsername')]",
+										"SQLAuthUpdatePassword": "[parameters('sqlServicePassword')]"
+									},
+									"SQLWorkloadTypeUpdateSettings": {
+										"SQLWorkloadType": "GENERAL"
+									},
+									"AdditionalFeaturesServerConfigurations": {
+										"IsRServicesEnabled": false
+									}
+								}                            
+							}
+						}
+					]
+				}
+			}
+		}
+	]
+}

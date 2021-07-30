@@ -1,0 +1,111 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "resourceNames": {
+         "type": "object"
+      },
+      "tags": {
+         "type": "object"
+      },
+      "_artifactsLocation": {
+         "type": "string"
+      },
+      "_artifactsLocationSasToken": {
+         "type": "securestring"
+      }
+   },
+   "functions": [],
+   "variables": {
+      "templateLink": "[concat(parameters('_artifactsLocation'),'common/nsg.json', parameters('_artifactsLocationSasToken'))]",
+      "primarySite": {
+         "location": "[parameters('resourceNames').primaryLocation]",
+         "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+         "tags": "[parameters('tags').primaryOps]",
+         "nsgNames": [
+            "[parameters('resourceNames').primaryDmzSubnetNsgName]",
+            "[parameters('resourceNames').primaryAppGateSubnetNsgName]",
+            "[parameters('resourceNames').primaryAddsSubnetNsgName]",
+            "[parameters('resourceNames').primaryAppFESubnetNsgName]",
+            "[parameters('resourceNames').primaryAppBESubnetNsgName]",
+            "[parameters('resourceNames').primarySqlSubnetNsgName]"
+         ]
+
+      },
+      "secondarySite": {
+         "location": "[parameters('resourceNames').secondaryLocation]",
+         "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+         "tags": "[parameters('tags').secondaryOps]",
+         "nsgNames": [
+            "[parameters('resourceNames').secondaryDmzSubnetNsgName]",
+            "[parameters('resourceNames').secondaryAppGateSubnetNsgName]",
+            "[parameters('resourceNames').secondaryAddsSubnetNsgName]",
+            "[parameters('resourceNames').secondaryAppFESubnetNsgName]",
+            "[parameters('resourceNames').secondaryAppBESubnetNsgName]",
+            "[parameters('resourceNames').secondarySqlSubnetNsgName]"
+         ]
+      }
+   },
+   "resources": [
+      {
+         "name": "[concat(variables('primarySite').nsgNames[copyIndex()], '_To_PrimarySite')]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "copy": {
+            "name": "primarySite",
+            "count": "[length(variables('primarySite').nsgNames)]"
+         },
+         "resourceGroup": "[variables('primarySite').resourceGroupName]",
+         "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+               "uri": "[variables('templateLink')]", 
+               "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('primarySite').location]"
+               },
+               "name": {
+                  "value": "[variables('primarySite').nsgNames[copyIndex()]]"
+               },
+               "tags": {
+                  "value": "[variables('primarySite').tags]"
+               }
+            }
+         }
+      },
+      {
+         "name": "[concat(variables('secondarySite').nsgNames[copyIndex()], '_To_SecondarySite')]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "copy": {
+            "name": "secondarySite",
+            "count": "[length(variables('secondarySite').nsgNames)]"
+         },
+         "resourceGroup": "[variables('secondarySite').resourceGroupName]",
+         "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+               "uri": "[variables('templateLink')]", 
+               "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('secondarySite').location]"
+               },
+               "name": {
+                  "value": "[variables('secondarySite').nsgNames[copyIndex()]]"
+               },
+               "tags": {
+                  "value": "[variables('secondarySite').tags]"
+               }
+            }
+         }
+      }
+   ],
+   "outputs": {}
+}

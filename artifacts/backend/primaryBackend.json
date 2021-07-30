@@ -1,0 +1,252 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "diskEncryptionAppId": {
+      "type": "securestring"
+    },
+    "diskEncryptionAppSecret": {
+      "type": "securestring"
+    },
+    "_artifactsLocation": {
+        "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+        "type": "securestring"
+    }
+  },
+  "variables": {
+    "vmTemplateLink": "[concat(parameters('_artifactsLocation'),'common/vm.json', parameters('_artifactsLocationSasToken'))]",
+    "lbTemplateLink": "[concat(parameters('_artifactsLocation'),'common/nlb.json', parameters('_artifactsLocationSasToken'))]",
+    "virtualMachines": [
+      {
+        "vmName": "[parameters('resourceNames').be00VmName]",
+        "computerName": "[parameters('resourceNames').be00ComputerName]",
+        "ipAddress": "[parameters('resourceNames').be00VmIp]"
+      },
+      {
+        "vmName": "[parameters('resourceNames').be01VmName]",
+        "computerName": "[parameters('resourceNames').be01ComputerName]",
+        "ipAddress": "[parameters('resourceNames').be01VmIp]"
+      }
+    ],
+    "configReplacements": [
+        {
+          "configXPath": "/configuration/connectionStrings/add[@name=\"DefaultConnection\"]/@connectionString",
+          "configValue": "[concat('Data Source=', parameters('resourceNames').sqlServerName, ';Database=SmartHotel.Registration;Trusted_Connection=True;')]"
+        }
+    ],
+    "keyVaultResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.KeyVault/vaults', parameters('resourceNames').primaryKeyVaultName)]"
+  },
+  "resources": [
+    {  
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('resourceNames').primaryAppBEASetName]",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('resourceNames').primaryLocation]",
+      "properties": {  
+        "PlatformUpdateDomainCount": 2,
+        "PlatformFaultDomainCount": 2
+      },
+      "sku": {
+        "name": "Aligned"
+      }
+    },
+    {
+      "name": "[concat('Deploy_NLB_', parameters('resourceNames').bePrimaryNlbName)]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('lbTemplateLink')]"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('resourceNames').primaryLocation]"
+          },
+          "name": {
+            "value": "[parameters('resourceNames').bePrimaryNlbName]"
+          },
+          "subnetId": {
+            "value": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').appBESubnetName)]"
+          },
+          "ipAddress": {
+            "value": "[parameters('resourceNames').bePrimaryNlbIp]"
+          },
+          "frontendPort": {
+            "value": 80
+          },
+          "probePort": {
+            "value": 80
+          }
+        }
+      }
+    },
+    {
+      "name": "[concat('Deploy_VM', copyIndex())]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "copy": {
+        "name": "virtualMachineLoop",
+        "count": "[length(variables('virtualMachines'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/availabilitySets', parameters('resourceNames').primaryAppBEASetName)]",
+        "[resourceId('Microsoft.Resources/deployments', concat('Deploy_NLB_', parameters('resourceNames').bePrimaryNlbName))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('vmTemplateLink')]"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('resourceNames').primaryLocation]"
+          },
+          "vmName": {
+            "value": "[variables('virtualMachines')[copyIndex()].vmName]"
+          },
+          "computerName": {
+            "value": "[variables('virtualMachines')[copyIndex()].computerName]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "availabilitySetName": {
+            "value": "[parameters('resourceNames').primaryAppBEASetName]"
+          },
+          "vmSize": {
+            "value": "Standard_D2s_v3"
+          },
+          "imagePublisher": {
+            "value": "MicrosoftWindowsServer"
+          },
+          "imageOffer": {
+            "value": "WindowsServer"
+          },
+          "imageSKU": {
+            "value": "2016-Datacenter"
+          },
+          "diagStorageAccountId": {
+            "value": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]"
+          },
+          "subnetResourceId": {
+            "value": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').appBESubnetName)]"
+          },
+          "recoveryVaultName": {
+            "value": "[parameters('resourceNames').primaryRecoveryVaultName]"
+          },
+          "recoveryVaultRGName": {
+            "value": "[parameters('resourceNames').primaryOpsRGName]"
+          },
+          "staticPrivateIpAddress": {
+            "value": "[variables('virtualMachines')[copyIndex()].ipAddress]"
+          },
+          "domainToJoin": {
+            "value": "[parameters('resourceNames').addsDomainName]"
+          },
+          "role": {
+            "value": "IIS"
+          },
+          "lbBEAddressPoolID": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', concat('Deploy_NLB_', parameters('resourceNames').bePrimaryNlbName)), '2020-10-01').outputs.lbBEAddressPoolID.value]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Insights/components', parameters('resourceNames').primaryAppInsightsName), '2020-02-02').InstrumentationKey]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('virtualMachines')[copyIndex()].vmName, '/ConfigureIIS')]",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('resourceNames').primaryLocation]",
+      "copy": {
+        "name": "dscLoop",
+        "count": "[length(variables('virtualMachines'))]"
+      },
+      "dependsOn": [
+        "virtualMachineLoop"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.71",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "v1",
+        "settings": {
+          "modulesUrl": "[concat(parameters('_artifactsLocation'), 'dsc/ConfigureIIS.zip', parameters('_artifactsLocationSasToken'))]",
+          "configurationFunction": "ConfigureIIS.ps1\\SH360Website",
+          "properties": {
+            "AppPoolCredential": {
+              "userName": "[parameters('adminUsername')]",
+              "password": "PrivateSettingsRef:adminPassword"
+            },
+            "stagingSAKey": {
+                "userName": "PLACEHOLDER-DO-NOT-USE",
+                "password": "PrivateSettingsRef:stagingSAKey"
+            },
+            "SH360FilesSAName": "[parameters('resourceNames').stagingStorageAccountName]",
+            "SiteName": "[parameters('resourceNames').backEndAppSiteName]",
+            "SH360FilesContainerName": "[parameters('resourceNames').stagingContainerName]",
+            "ConfigReplacements": "[variables('configReplacements')]",
+            "AIKey": "[reference(resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Insights/components', parameters('resourceNames').primaryAppInsightsName), '2020-02-02').InstrumentationKey]"
+          }
+        },
+        "protectedSettings": {
+          "items": {
+            "adminPassword": "[parameters('adminPassword')]",
+            "stagingSAKey": "[listKeys(resourceId(parameters('resourceNames').stagingRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').stagingStorageAccountName), '2021-04-01').keys[0].value]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('virtualMachines')[copyIndex()].vmName, '/AzureDiskEncryption')]",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('resourceNames').primaryLocation]",
+      "dependsOn": [
+        "dscLoop"
+      ],
+      "copy": {
+        "name": "encryptVMLoop",
+        "count": "[length(variables('virtualMachines'))]"
+      },
+      "properties": {
+        "publisher": "Microsoft.Azure.Security",
+        "type": "AzureDiskEncryption",
+        "typeHandlerVersion": "1.1",
+        "protectedSettings": {
+          "AADClientSecret": "[parameters('diskEncryptionAppSecret')]"
+        },
+        "settings": {
+          "EncryptionOperation": "EnableEncryption",
+          "KeyVaultURL": "[reference(variables('keyVaultResourceId'), '2019-09-01').vaultUri]",
+          "KeyVaultResourceId": "[variables('keyVaultResourceId')]",
+          "KekVaultResourceId": "[variables('keyVaultResourceId')]",
+          "KeyEncryptionAlgorithm": "RSA-OAEP",
+          "VolumeType": "All",
+          "AADClientID": "[parameters('diskEncryptionAppId')]"
+        }
+      }
+    }
+  ]
+}

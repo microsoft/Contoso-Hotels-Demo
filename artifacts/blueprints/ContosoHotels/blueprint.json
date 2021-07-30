@@ -1,0 +1,42 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+{
+    "type": "Microsoft.Blueprint/blueprints",
+    "properties": {
+        "description": "A simple blueprint with two artifacts",
+        "targetScope": "subscription",
+        "parameters": {
+            "primaryOpsRGName": {
+                "type": "string",
+                "metadata": {
+                   "description": "Primary site Ops resource group name"
+                }
+            },
+            "primaryLocation": {
+                "type": "string",
+                "metadata": {
+                   "description": "Primary site location"
+                }
+            },
+            "appServiceName": {
+                "type": "string",
+                "metadata": {
+                   "description": "App Service name"
+                }
+            },
+            "appServicePlanName": {
+                "type": "string",
+                "metadata": {
+                   "description": "App Service plan name"
+                }
+            }
+        },
+        "resourceGroups": {
+            "priOpsRG": {
+                "name": "[parameters('primaryOpsRGName')]",
+                "location": "[parameters('primaryLocation')]"
+            }
+        }
+    }
+}

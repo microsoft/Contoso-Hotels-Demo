@@ -1,0 +1,153 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+jobs:
+- job: DeployDiagnosticsInitiative
+  displayName: Deploy Diagnostics Policy Initiative
+  pool: 
+    vmImage: windows-latest
+
+  variables:
+  - template: diagnostic-policy.variables.yml
+
+  steps:
+  - checkout: self
+    persistCredentials: true
+
+  - pwsh: |
+      cd $(Pipeline.Workspace)
+      git clone https://github.com/JimGBritt/AzurePolicy.git
+      Write-Host "##vso[task.setvariable variable=ScriptPath]$(Pipeline.Workspace)/AzurePolicy/AzureMonitor/Scripts"
+    displayName: Get scripts from GitHub
+
+  - task: AzurePowerShell@4
+    displayName: 'Create $(TemplateFileName) template'
+    inputs:
+      azurePowerShellVersion: LatestVersion
+      azureSubscription: $(azureSubscriptionEndpoint)
+      ScriptType: InlineScript
+      Inline: |
+        $context = Get-AzContext
+        Write-Host "##vso[task.setvariable variable=subscriptionId]$($context.Subscription.id)"
+
+        $(ScriptPath)/Create-AzDiagPolicy.ps1 -ADO -ExportDir '$(ExportDir)' -ExportAll -ExportLA -AllRegions -ValidateJSON -ExportInitiative `
+          -InitiativeDisplayName '$(InitiativeDisplayName)' -TemplateFileName '$(TemplateFileName)' `
+          -SubscriptionId $context.Subscription.id
+
+        $isChanged = !(Test-Path -Path '$(policyTemplatePath)/$(templateFileName).json') `
+          -or (Compare-Object -ReferenceObject $(Get-Content '$(policyTemplatePath)/$(templateFileName).json') -DifferenceObject $(Get-Content '$(exportDir)/$(templateFileName).json'))
+        Write-Host "##vso[task.setvariable variable=isChanged]$isChanged"
+
+        $initiativeResource = (Get-Content '$(exportDir)/$(templateFileName).json' | ConvertFrom-Json).resources | ? type -match 'policySetDefinitions'
+        $isDeployed = [bool](Get-AzPolicySetDefinition -Name $initiativeResource.name -ErrorAction SilentlyContinue)
+        Write-Host "##vso[task.setvariable variable=isDeployed]$isDeployed"
+        
+        $isAssigned = [bool](Get-AzPolicyAssignment | ? { $_.Properties.DisplayName -eq '$(InitiativeDisplayName)'})
+        Write-Host "##vso[task.setvariable variable=isAssigned]$isAssigned"
+
+        if ($isChanged) {
+          if (!(Test-Path -Path '$(policyTemplatePath)')) { New-Item -ItemType Directory -Path '$(policyTemplatePath)' -Force }
+          Copy-Item -Path '$(exportDir)/$(templateFileName).json' -Destination '$(policyTemplatePath)/$(templateFileName).json'
+        }
+
+  - task: AzurePowerShell@4
+    displayName: 'Deploy $(TemplateFileName) template'
+    condition: and(succeeded(), or(eq(variables.isChanged, true), eq(variables.isDeployed, false)))
+    inputs:
+      azurePowerShellVersion: LatestVersion
+      azureSubscription: $(azureSubscriptionEndpoint)
+      ScriptType: InlineScript
+      Inline: |
+        New-AzDeployment -Name 'Deploy_Diagnostics_Initiative_$(Build.BuildNumber)' -Location $(location) -TemplateFile '$(ExportDir)/$(TemplateFileName).json' -Verbose
+
+  - task: AzurePowerShell@4
+    displayName: 'Assign initiative'
+    condition: and(succeeded(), or(eq(variables.isChanged, true), eq(variables.isAssigned, false)))
+    inputs:
+      azurePowerShellVersion: LatestVersion
+      azureSubscription: $(azureSubscriptionEndpoint)
+      ScriptType: InlineScript
+      Inline: |
+        Start-Sleep -Seconds 180
+
+        $template = Get-Content '$(ExportDir)/$(TemplateFileName).json' | ConvertFrom-Json
+        $initiative = $template.resources | ? { $_.properties.displayName -eq '$(InitiativeDisplayName)' }
+
+        $policySetDefinition = Get-AzPolicySetDefinition -Name $initiative.name -SubscriptionId $(subscriptionId)
+
+        $workspaceName = $(resourceNames).workspaceName
+        $workspaceRGName = $(resourceNames).primaryOpsRGName
+        $workspaceResourceId = "/subscriptions/$(subscriptionId)/resourceGroups/$workspaceRGName/providers/Microsoft.OperationalInsights/workspaces/$workspaceName"
+
+        $templateParameters = @{
+          location = '$(location)'
+          displayName = '$(initiativeDisplayName)'
+          identityType = '$(policy.identityType)'
+          notScopes = @()
+          policyDefinitionId = $policySetDefinition.PolicySetDefinitionId
+          parameters = @{
+            profileName = @{
+              value = '$(policy.profileName)'
+            }
+            logAnalytics = @{
+              value = $workspaceResourceId
+            }
+            metricsEnabled = @{
+              value = 'True'
+            }
+            logsEnabled = @{
+              value = 'True'
+            }
+          }
+        }
+
+        $(notScopeRGs) | % { $templateParameters.notScopes += "/subscriptions/$(subscriptionId)/resourceGroups/$_" }
+
+        $policyAssignment = New-AzDeployment -Name 'Assign_Diagnostics_Initiative_$(Build.BuildNumber)' -Location $(location) `
+          -TemplateFile '$(armTemplatePath)/Microsoft.Authorization/policyAssignment.json' `
+          -TemplateParameterObject $templateParameters -Verbose
+
+        Write-Host "##vso[task.setvariable variable=policyAssignmentId]$($policyAssignment.Outputs.policyAssignmentId.value)"
+
+        Start-Sleep -Seconds 30
+
+        $templateParameters = @{
+          principalId = $policyAssignment.Outputs.principalId.value
+          roleDefinitionId = '$(contributorRoleDefinitionId)'
+        }
+
+        New-AzDeployment -Name 'Assign_Role_To_Initiative_$(Build.BuildNumber)' -Location $(location) `
+          -TemplateFile '$(armTemplatePath)/Microsoft.Authorization/roleAssignment.json' `
+          -TemplateParameterObject $templateParameters -Verbose
+
+  - task: AzurePowerShell@4
+    displayName: 'Trigger Policy Evaluation'
+    condition: and(succeeded(), eq(variables.isChanged, true))
+    inputs:
+      azurePowerShellVersion: LatestVersion
+      azureSubscription:  $(azureSubscriptionEndpoint)
+      ScriptType: InlineScript
+      Inline: |
+        $(ScriptPath)/Trigger-PolicyEvaluation.ps1 -ADO -SubscriptionId '$(subscriptionId)'
+
+  - task: AzurePowerShell@4
+    displayName: 'Trigger Policy Remediation'
+    condition: and(succeeded(), eq(variables.isChanged, true))
+    inputs:
+      azurePowerShellVersion: LatestVersion
+      azureSubscription:  $(azureSubscriptionEndpoint)
+      ScriptType: InlineScript
+      Inline: |
+        $(ScriptPath)/Trigger-PolicyInitiativeRemediation.ps1 -ADO -SubscriptionId '$(subscriptionId)' -PolicyAssignmentId '$(policyAssignmentId)' -Force
+
+  # - task: CmdLine@2
+  #   displayName: 'Push template to the $(Build.SourceBranchName) branch'
+  #   condition: and(succeeded(), eq(variables.isChanged, true))
+  #   inputs:
+  #     script: |
+  #       git config --global user.email "contosohotelspipelineg@microsoft.com"
+  #       git config --global user.name "ContosoHotelsPipeline"
+  #       git checkout $(Build.SourceBranchName)
+  #       git add --all
+  #       git commit -m "Update Diagnostics Policy Initiative ARM template"
+  #       git push

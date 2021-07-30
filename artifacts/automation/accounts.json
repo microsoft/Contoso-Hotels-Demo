@@ -1,0 +1,70 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "tags": {
+            "type": "object"
+        },
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "templateLink": "[concat(parameters('_artifactsLocation'),'common/automationAccount.json', parameters('_artifactsLocationSasToken'))]",
+        "accounts": [
+            {
+               "location": "[if(equals(parameters('resourceNames').primaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').primaryLocation)]",
+               "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+               "name": "[parameters('resourceNames').primaryAutomationAccountName]",
+               "tags": "[parameters('tags').primaryOps]"
+            },
+            {
+               "location": "[if(equals(parameters('resourceNames').secondaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').secondaryLocation)]",
+               "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+               "name": "[parameters('resourceNames').secondaryAutomationAccountName]",
+               "tags": "[parameters('tags').secondaryOps]"
+            }
+        ]
+    },
+    "resources": [
+        {
+            "name": "[variables('accounts')[copyIndex()].name]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "copy": {
+                "name": "accountLoop",
+                "count": "[length(variables('accounts'))]"
+            },
+            "resourceGroup": "[variables('accounts')[copyIndex()].resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                "uri": "[variables('templateLink')]", 
+                "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('accounts')[copyIndex()].location]"
+                    },
+                    "name": {
+                        "value": "[variables('accounts')[copyIndex()].name]"
+                    },
+                    "tags": {
+                        "value": "[variables('accounts')[copyIndex()].tags]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

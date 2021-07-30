@@ -1,0 +1,442 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "budgetName": {
+      "type": "string",
+      "defaultValue": "ContosoBudget"
+    },
+    "suffix": {
+      "type": "string",
+      "defaultValue": ""
+    } 
+  },
+  "variables": {
+    "dashboardName": "[concat('Cost-Mgmt-Dashboard', parameters('suffix'))]",
+    "dashboardHiddenTitle": "[concat('Contoso Hotels - Cost Management', parameters('suffix'))]",
+    "budgetName": "[parameters('budgetName')]"
+  },
+  "resources": [  
+    {
+      "name": "[variables('dashboardName')]",
+      "type": "Microsoft.Portal/dashboards",
+      "location": "[parameters('location')]",
+      "tags": {
+        "hidden-title": "[variables('dashboardHiddenTitle')]"
+      },
+      "apiVersion": "2020-09-01-preview",
+      "properties": {
+        "lenses": [
+          {
+            "order": 0,
+            "parts": [
+              {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "id",
+                      "value": "[subscription().subscriptionId]"
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_Billing/PartType/SubscriptionDetailBurnRateChart"
+                }
+              },
+              {
+                "position": {
+                  "x": 12,
+                  "y": 0,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "id",
+                      "value": "[subscription().id]"
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_Billing/PartType/SubscriptionDetailCostByResource"
+                }
+              },
+              {
+                "position": {
+                  "x": 7,
+                  "y": 1,
+                  "colSpan": 4,
+                  "rowSpan": 2
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "budgetId",
+                      "value": "[subscriptionResourceId('Microsoft.Consumption/budgets/', variables('budgetName'))]"
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_CostManagement/PartType/CurrentSpendvsBudgetPart"
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 5,
+                  "colSpan": 6,
+                  "rowSpan": 1
+                },
+                "metadata": {
+                  "inputs": [],
+                  "type": "Extension/HubsExtension/PartType/MarkdownPart",
+                  "settings": {
+                    "content": {
+                      "settings": {
+                        "content": "# Monthly cost by Resource Groups\n\n<body style=\"font-family:new century schoolbook;\" > "
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 6,
+                  "y": 5,
+                  "colSpan": 6,
+                  "rowSpan": 1
+                },
+                "metadata": {
+                  "inputs": [],
+                  "type": "Extension/HubsExtension/PartType/MarkdownPart",
+                  "settings": {
+                    "content": {
+                      "settings": {
+                        "content": "# Daily cost by environments\n\n<body style=\"font-family:new century schoolbook;\" > "
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 12,
+                  "y": 5,
+                  "colSpan": 6,
+                  "rowSpan": 1
+                },
+                "metadata": {
+                  "inputs": [],
+                  "type": "Extension/HubsExtension/PartType/MarkdownPart",
+                  "settings": {
+                    "content": {
+                      "settings": {
+                        "content": "# Monthly cost by application\n\n<body style=\"font-family:new century schoolbook;\" > "
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "position": {
+                  "x": 0,
+                  "y": 6,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "scope",
+                      "value": "[subscription().id]"
+                    },
+                    {
+                      "name": "scopeName",
+                      "value": "[subscription().displayName]"
+                    },
+                    {
+                      "name": "externalState",
+                      "value": {
+                        "currency": "USD",
+                        "dateRange": "Last30Days",
+                        "query": {
+                          "type": "ActualCost",
+                          "dataSet": {
+                            "granularity": "Daily",
+                            "aggregation": {
+                              "totalCost": {
+                                "name": "PreTaxCost",
+                                "function": "Sum"
+                              }
+                            },
+                            "sorting": [
+                              {
+                                "direction": "ascending",
+                                "name": "UsageDate"
+                              }
+                            ],
+                            "grouping": [
+                              {
+                                "type": "Dimension",
+                                "name": "ResourceGroupName"
+                              }
+                            ]
+                          },
+                          "timeframe": "None"
+                        },
+                        "chart": "Area",
+                        "accumulated": "true",
+                        "pivots": [
+                          {
+                            "type": "Dimension",
+                            "name": "ServiceName"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceLocation"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceGroupName"
+                          }
+                        ],
+                        "scope": "[subscription().id]",
+                        "kpis": [
+                          {
+                            "type": "Forecast",
+                            "enabled": true
+                          }
+                        ],
+                        "displayName": "AccumulatedCosts"
+                      },
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_CostManagement/PartType/CostAnalysisPinPart"
+                }
+              },
+              {
+                "position": {
+                  "x": 6,
+                  "y": 6,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "scope",
+                      "value": "[subscription().id]"
+                    },
+                    {
+                      "name": "scopeName",
+                      "value": "[subscription().displayName]"
+                    },
+                    {
+                      "name": "externalState",
+                      "value": {
+                        "currency": "USD",
+                        "dateRange": "Last30Days",
+                        "query": {
+                          "type": "ActualCost",
+                          "dataSet": {
+                            "granularity": "Daily",
+                            "aggregation": {
+                              "totalCost": {
+                                "name": "PreTaxCost",
+                                "function": "Sum"
+                              }
+                            },
+                            "sorting": [
+                              {
+                                "direction": "ascending",
+                                "name": "UsageDate"
+                              }
+                            ],
+                            "grouping": [
+                              {
+                                "type": "TagKey",
+                                "name": "demo_environment"
+                              }
+                            ],
+                            "filter": {
+                              "And": [
+                                {
+                                  "TagKey": {
+                                    "Values": [
+                                      "demo_environment"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "TagValue": {
+                                    "Values": [
+                                      "dev",
+                                      "prod",
+                                      "qa"
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "timeframe": "None"
+                        },
+                        "chart": "StackedColumn",
+                        "accumulated": "false",
+                        "pivots": [
+                          {
+                            "type": "Dimension",
+                            "name": "ServiceName"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceLocation"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceGroupName"
+                          }
+                        ],
+                        "scope": "[subscription().id]",
+                        "kpis": [
+                          {
+                            "type": "Forecast",
+                            "enabled": true
+                          }
+                        ],
+                        "displayName": "DailyCosts"
+                      },
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_CostManagement/PartType/CostAnalysisPinPart",
+                  "defaultMenuItemId": "costByResource"
+                }
+              },
+              {
+                "position": {
+                  "x": 12,
+                  "y": 6,
+                  "colSpan": 6,
+                  "rowSpan": 4
+                },
+                "metadata": {
+                  "inputs": [
+                    {
+                      "name": "scope",
+                      "value": "[subscription().id]"
+                    },
+                    {
+                      "name": "scopeName",
+                      "value": "[subscription().displayName]"
+                    },
+                    {
+                      "name": "externalState",
+                      "value": {
+                        "currency": "USD",
+                        "dateRange": "ThisMonth",
+                        "query": {
+                          "type": "ActualCost",
+                          "dataSet": {
+                            "granularity": "Monthly",
+                            "aggregation": {
+                              "totalCost": {
+                                "name": "PreTaxCost",
+                                "function": "Sum"
+                              }
+                            },
+                            "sorting": [
+                              {
+                                "direction": "ascending",
+                                "name": "BillingMonth"
+                              }
+                            ],
+                            "grouping": [
+                              {
+                                "type": "TagKey",
+                                "name": "demo_application"
+                              }
+                            ],
+                            "filter": {
+                              "And": [
+                                {
+                                  "TagKey": {
+                                    "Values": [
+                                      "demo_application"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "TagValue": {
+                                    "Values": [
+                                      "azure_analytics",
+                                      "azure_commerce",
+                                      "azure_infra"
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "timeframe": "None"
+                        },
+                        "chart": "Table",
+                        "accumulated": "false",
+                        "pivots": [
+                          {
+                            "type": "Dimension",
+                            "name": "ServiceName"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceLocation"
+                          },
+                          {
+                            "type": "Dimension",
+                            "name": "ResourceGroupName"
+                          }
+                        ],
+                        "scope": "[subscription().id]",
+                        "kpis": [
+                          {
+                            "type": "Forecast",
+                            "enabled": true
+                          }
+                        ],
+                        "displayName": "AccumulatedCosts"
+                      },
+                      "isOptional": true
+                    }
+                  ],
+                  "type": "Extension/Microsoft_Azure_CostManagement/PartType/CostAnalysisPinPart",
+                  "defaultMenuItemId": "costByResource"
+                }
+              }
+            ]
+          }
+        ],
+        "metadata": {
+          "model": {
+            "timeRange": {
+              "value": {
+                "relative": {
+                  "duration": 24,
+                  "timeUnit": 1
+                }
+              },
+              "type": "MsPortalFx.Composition.Configuration.ValueTypes.TimeRange"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

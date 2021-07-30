@@ -1,0 +1,256 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+    "_artifactsLocation": {
+        "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+        "type": "securestring"
+    }
+  },
+  "variables": {
+    "getDisksTemplateLink": "[concat(parameters('_artifactsLocation'),'common/asr_get_vm_disks.json', parameters('_artifactsLocationSasToken'))]",
+
+    "vmRGName": "[parameters('resourceNames').primaryRetailRGName]",
+    "vmNames": [
+      "[parameters('resourceNames').be00VmName]",
+      "[parameters('resourceNames').be01VmName]"
+    ],
+
+    "sourceResourceGroupName": "[parameters('resourceNames').primaryRetailRGName]",
+    "targetResourceGroupName": "[parameters('resourceNames').secondaryRetailRGName]",
+    "targetResourceGroupId": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('targetResourceGroupName'))]",
+
+    "targetAvailabilitySetName": "[parameters('resourceNames').secondaryAppBEASetName]",
+
+    "asrCacheStorageAccountName": "[parameters('resourceNames').asrStorageAccountName]",
+
+    "vaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+    "policyName": "24-hour-retention-policy",
+
+    "sourceNetworkName": "[parameters('resourceNames').primaryVnetName]",
+    "targetNetworkName": "[parameters('resourceNames').secondaryVnetName]",
+    "sourceNetworkResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks', variables('sourceNetworkName'))]",
+    "targetNetworkResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks', variables('targetNetworkName'))]",
+
+
+    "sourceLocation": "[parameters('resourceNames').primaryLocation]",
+    "targetLocation": "[parameters('resourceNames').secondaryLocation]",
+
+    "sourceFabricName": "[concat('asr-a2a-default-', variables('sourceLocation'))]",
+    "targetFabricName": "[concat('asr-a2a-default-', variables('targetLocation'))]",
+    "sourceContainerName": "[concat('asr-a2a-default-', variables('sourceLocation'), '-container')]",
+    "targetContainerName": "[concat('asr-a2a-default-', variables('targetLocation'), '-container')]",
+    "sourceMappingName": "[concat(variables('sourceLocation'), '-', variables('targetLocation'), '-', variables('policyName'))]",
+    "targetMappingName": "[concat(variables('targetLocation'), '-', variables('sourceLocation'), '-', variables('policyName'))]",
+    "sourceNetworkMappingName":"[concat(variables('sourceLocation'), '-', variables('targetLocation'), '-', variables('sourceNetworkName'))]",
+    "targetNetworkMappingName":"[concat(variables('targetLocation'), '-', variables('sourceLocation'), '-', variables('targetNetworkName'))]",
+
+    "targetAvailabilitySetResourceId":"[resourceId(variables('targetResourceGroupName'), 'Microsoft.Compute/availabilitySets', variables('targetAvailabilitySetName'))]",
+    "policyResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationPolicies', variables('vaultName'), variables('policyName'))]",
+    "sourceFabricResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics', variables('vaultName'), variables('sourceFabricName'))]",
+    "targetFabricResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics', variables('vaultName'), variables('targetFabricName'))]",
+    "sourceContainerResourceId": "[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers', variables('vaultName'), variables('sourceFabricName'), variables('sourceContainerName'))]",
+    "targetContainerResourceId": "[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers', variables('vaultName'), variables('targetFabricName'), variables('targetContainerName'))]",
+    "sourceMappingResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionContainerMappings', variables('vaultName'), variables('sourceFabricName'), variables('sourceContainerName'), variables('sourceMappingName'))]",
+    "targetMappingResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionContainerMappings', variables('vaultName'), variables('targetFabricName'), variables('targetContainerName'), variables('targetMappingName'))]",
+    "sourceNetworkMappingResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationNetworks/replicationNetworkMappings', variables('vaultName'), variables('sourceFabricName'), 'azureNetwork', variables('sourceNetworkMappingName'))]",
+    "targetNetworkMappingResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationNetworks/replicationNetworkMappings', variables('vaultName'), variables('targetFabricName'), 'azureNetwork', variables('targetNetworkMappingName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics",
+      "name": "[concat(variables('vaultName'), '/', variables('sourceFabricName'))]",
+      "apiVersion": "2018-07-10",
+      "properties": {
+        "customDetails": {
+          "instanceType": "Azure",
+          "location": "[variables('sourceLocation')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics",
+      "name": "[concat(variables('vaultName'), '/', variables('targetFabricName'))]",
+      "apiVersion": "2018-07-10",
+      "properties": {
+        "customDetails": {
+          "instanceType": "Azure",
+          "location": "[variables('targetLocation')]"
+        }
+      },
+      "dependsOn": [
+        "[variables('sourceFabricResourceId')]"
+      ]
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationPolicies",
+      "name": "[concat(variables('vaultName'), '/',variables('policyName'))]",
+      "apiVersion": "2018-07-10",
+      "properties": {
+        "providerSpecificInput": {
+          "instanceType": "A2A",
+          "appConsistentFrequencyInMinutes": 240,
+          "crashConsistentFrequencyInMinutes": 5,
+          "multiVmSyncStatus": "Enable",
+          "recoveryPointHistory": 1440
+        }
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers",
+      "name": "[concat(variables('vaultName'), '/', variables('sourceFabricName'), '/', variables('sourceContainerName'))]",
+      "apiVersion": "2018-07-10",
+      "properties": {
+        "providerSpecificDetails": [
+          {
+            "instanceType": "A2A"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[variables('sourceFabricResourceId')]"
+      ]
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers",
+      "name": "[concat(variables('vaultName'), '/', variables('targetFabricName'), '/', variables('targetContainerName'))]",
+      "apiVersion": "2018-07-10",
+      "properties": {
+        "providerSpecificDetails": [
+          {
+            "instanceType": "A2A"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[variables('targetFabricResourceId')]"
+      ]
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionContainerMappings",
+      "name": "[concat(variables('vaultName'), '/', variables('sourceFabricName'), '/', variables('sourceContainerName'), '/', variables('sourceMappingName'))]",
+      "apiVersion": "2016-08-10",
+      "properties": {
+        "policyId": "[variables('policyResourceId')]",
+        "targetProtectionContainerId": "[variables('targetContainerResourceId')]"
+      },
+      "dependsOn": [
+        "[variables('sourceContainerResourceId')]",
+        "[variables('targetContainerResourceId')]",
+        "[variables('policyResourceId')]"
+      ]
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectionContainerMappings",
+      "name": "[concat(variables('vaultName'), '/', variables('targetFabricName'), '/', variables('targetContainerName'), '/', variables('targetMappingName'))]",
+      "apiVersion": "2016-08-10",
+      "properties": {
+        "policyId": "[variables('policyResourceId')]",
+        "targetProtectionContainerId": "[variables('sourceContainerResourceId')]"
+      },
+      "dependsOn": [
+        "[variables('sourceContainerResourceId')]",
+        "[variables('targetContainerResourceId')]",
+        "[variables('policyResourceId')]"
+      ]
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationNetworks/replicationNetworkMappings",
+      "apiVersion": "2018-07-10",
+      "name": "[concat(variables('vaultName'), '/', variables('sourceFabricName'), '/azureNetwork/', variables('sourceNetworkMappingName'))]",
+      "dependsOn": [
+        "[variables('sourceFabricResourceId')]",
+        "[variables('targetFabricResourceId')]"
+      ],
+      "properties": {
+        "recoveryFabricName": "[variables('targetFabricName')]",
+        "recoveryNetworkId": "[variables('targetNetworkResourceId')]",
+        "fabricSpecificDetails": {
+          "instanceType": "AzureToAzure",
+          "primaryNetworkId": "[variables('sourceNetworkResourceId')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationNetworks/replicationNetworkMappings",
+      "apiVersion": "2018-07-10",
+      "name": "[concat(variables('vaultName'), '/', variables('targetFabricName'), '/azureNetwork/', variables('targetNetworkMappingName'))]",
+      "dependsOn": [
+        "[variables('sourceNetworkMappingResourceId')]",
+        "[variables('sourceFabricResourceId')]",
+        "[variables('targetFabricResourceId')]"
+      ],
+      "properties": {
+        "recoveryFabricName": "[variables('sourceFabricName')]",
+        "recoveryNetworkId": "[variables('sourceNetworkResourceId')]",
+        "fabricSpecificDetails": {
+          "instanceType": "AzureToAzure",
+          "primaryNetworkId": "[variables('targetNetworkResourceId')]"
+        }
+      }
+    },
+    {
+      "name": "[concat('GetDisksOf_', variables('vmNames')[copyIndex()])]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "copy": {
+        "name": "vmDisksLoop",
+        "count": "[length(variables('vmNames'))]"
+      },
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('getDisksTemplateLink')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vmObject": {
+            "value":"[reference(resourceId(variables('vmRGName'), 'Microsoft.Compute/virtualMachines', variables('vmNames')[copyIndex()]), '2020-06-01')]"
+          },
+          "primaryStagingAzureStorageAccountId": {
+            "value":"[resourceId(variables('sourceResourceGroupName'), 'Microsoft.Storage/storageAccounts', variables('asrCacheStorageAccountName'))]"
+          },
+          "recoveryResourceGroupId": {
+            "value":"[variables('targetResourceGroupId')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems",
+      "name": "[concat(variables('vaultName'), '/', variables('sourceFabricName'), '/', variables('sourceContainerName'), '/', guid(variables('vmNames')[copyIndex()]))]",
+      "apiVersion": "2018-07-10",
+      "copy": {
+        "name": "vmCopy",
+        "count": "[length(variables('vmNames'))]"
+      },
+      "dependsOn": [
+        "[variables('sourceMappingResourceId')]",
+        "[variables('targetMappingResourceId')]",
+        "[variables('sourceNetworkMappingResourceId')]",
+        "[variables('targetNetworkMappingResourceId')]",
+        "[resourceId('Microsoft.Resources/deployments', concat('GetDisksOf_', variables('vmNames')[copyIndex()]))]"
+      ],
+      "properties": {
+        "policyId": "[variables('policyResourceId')]",
+        "providerSpecificDetails": {
+          "instanceType": "A2A",
+          "fabricObjectId": "[resourceId(variables('vmRGName'), 'Microsoft.Compute/virtualMachines', variables('vmNames')[copyIndex()])]",
+          "recoveryResourceGroupId": "[variables('targetResourceGroupId')]",
+          "recoveryContainerId": "[variables('targetContainerResourceId')]",
+          "vmManagedDisks": "[reference(resourceId('Microsoft.Resources/deployments', concat('GetDisksOf_', variables('vmNames')[copyIndex()]))).outputs.managedDisksAsr.value]",
+          "recoveryAzureNetworkId": "[variables('targetNetworkResourceId')]",
+          "recoveryAvailabilitySetId": "[variables('targetAvailabilitySetResourceId')]"
+        }
+      }
+    }
+  ]
+}

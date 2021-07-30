@@ -1,0 +1,57 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNames": {
+        "type": "object"
+    }
+  },
+  "variables": {
+    "primaryEndpoint": "[resourceId(parameters('resourceNames').primaryRetailRGName, 'Microsoft.Network/publicIPAddresses', concat(parameters('resourceNames').fePrimaryAppGatewayName, '-pip'))]",
+    "secondaryEndpoint": "[resourceId(parameters('resourceNames').secondaryRetailRGName, 'Microsoft.Network/publicIPAddresses', concat(parameters('resourceNames').feSecondaryAppGatewayName, '-pip'))]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2018-08-01",
+      "type": "Microsoft.Network/trafficManagerProfiles",
+      "name": "[parameters('resourceNames').trafficManagerName]",
+      "location": "global",
+      "properties": {
+        "profileStatus": "Enabled",
+        "trafficRoutingMethod": "Priority",
+        "dnsConfig": {
+          "relativeName": "[parameters('resourceNames').trafficManagerDnsName]",
+          "ttl": 30
+        },
+        "monitorConfig": {
+          "protocol": "HTTPS",
+          "port": 443,
+          "path": "/"
+        },
+        "endpoints": [
+          {
+            "name": "primary",
+            "type": "Microsoft.Network/trafficManagerProfiles/azureEndpoints",
+            "properties": {
+              "targetResourceId": "[variables('primaryEndpoint')]",
+              "endpointStatus": "Enabled",
+              "weight": 1
+            }
+          },
+          {
+            "name": "secondary",
+            "type": "Microsoft.Network/trafficManagerProfiles/azureEndpoints",
+            "properties": {
+              "targetResourceId": "[variables('secondaryEndpoint')]",
+              "endpointStatus": "Disabled",
+              "weight": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

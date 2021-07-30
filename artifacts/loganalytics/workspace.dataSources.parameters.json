@@ -1,0 +1,1070 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "dataSources": {
+            "value": [
+                {
+                    "name": "SecurityEventCollectionConfiguration",
+                    "kind": "SecurityEventCollectionConfiguration",
+                    "properties": {
+                       "tier": "Recommended",
+                       "tierSetMethod": "Custom"
+                    }
+                },
+                {
+                    "name": "ChangeTrackingCustomPath_hosts_file",
+                    "kind": "ChangeTrackingCustomPath",
+                    "properties": {
+                        "checksum": "Md5",
+                        "enabled": true,
+                        "groupTag": "Hosts",
+                        "maxContentsReturnable": 5000000,
+                        "maxOutputSize": 0,
+                        "path": "c:\\windows\\system32\\drivers\\etc\\hosts",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_Registry",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "Registry",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_Files",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "Files",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_Daemons",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "Daemons",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_WindowsServices",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "WindowsServices",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_Software",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "Software",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "ChangeTrackingDataTypeConfiguration_Inventory",
+                    "kind": "ChangeTrackingDataTypeConfiguration",
+                    "properties": {
+                        "DataTypeId": "Inventory",
+                        "Enabled": true
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_1",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\autoexec.bat",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_2",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\boot.ini",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_3",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\config.sys",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_4",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Windows\\system.ini",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_5",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Windows\\win.ini",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_6",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Windows\\regedit.exe",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_7",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Windows\\System32\\userinit.exe",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_8",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Windows\\explorer.exe",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_WindowsFiles_9",
+                    "kind": "ChangeTrackingPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "checksum": "Sha256",
+                        "path": "C:\\Program Files\\Microsoft Security Client\\msseces.exe",
+                        "pathType": "File",
+                        "recurse": false
+                    }
+                },
+                {
+                    "name": "FIM_Registry_1",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllRemoveSignedDataMsg\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_2",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllRemoveSignedDataMsg\\{603BCC1F-4B59-4E08-B724-D2C6297EF351}",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_3",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\IniFileMapping\\SYSTEM.ini\\boot",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_4",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_5",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_6",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_7",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_8",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_9",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_10",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_11",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunServices",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_12",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunServicesOnce",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_13",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllRemoveSignedDataMsg\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_14",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllRemoveSignedDataMsg\\{603BCC1F-4B59-4E08-B724-D2C6297EF351}",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_15",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\IniFileMapping\\system.ini\\boot",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_16",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_17",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_18",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_19",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_20",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_21",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_22",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_23",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\RunServices",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_24",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\RunServicesOnce",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_25",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\hivelist",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_26",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\KnownDLLs",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_27",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\DomainProfile",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_28",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\PublicProfile",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_Registry_29",
+                    "kind": "ChangeTrackingDefaultRegistry",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "keyName": "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile",
+                        "recurse": false,
+                        "valueName": ""
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_1",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/bin/login",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "File",
+                        "type": "File",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_2",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/bin/passwd",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "File",
+                        "type": "File",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_3",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/*.conf",
+                        "useSudo": true,
+                        "recurse": true,
+                        "maxContentsReturnable": 0,
+                        "pathType": "File",
+                        "type": "File",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_4",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/usr/bin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_5",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/usr/sbin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_6",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/bin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_7",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/sbin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_8",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/boot",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_9",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/usr/local/bin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_10",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/usr/local/sbin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_11",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/opt/bin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_12",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/opt/sbin",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_13",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/crontab",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "File",
+                        "type": "File",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_14",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/init.d",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_15",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/cron.hourly",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_16",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/cron.daily",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_17",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/cron.weekly",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "FIM_LinuxFiles_18",
+                    "kind": "ChangeTrackingLinuxPath",
+                    "properties": {
+                        "enabled": true,
+                        "groupTag": "Security",
+                        "destinationPath": "/etc/cron.monthly",
+                        "useSudo": true,
+                        "recurse": false,
+                        "maxContentsReturnable": 0,
+                        "pathType": "Directory",
+                        "type": "Directory",
+                        "links": "Follow",
+                        "checksum": "Sha256",
+                        "maxOutputSize": 5000000
+                    }
+                },
+                {
+                    "name": "DataSource_IISLogs",
+                    "kind": "IISLogs",
+                    "properties": {
+                        "state": "OnPremiseEnabled"
+                    }                
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Pct-Free-Space",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "% Free Space"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Avg-DiskSecRead",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Avg. Disk sec/Read"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Avg-DiskSecTransfer",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Avg. Disk sec/Transfer"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Avg-DiskSecWrite",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Avg. Disk sec/Write"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-BytesSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Bytes/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-ReadBytesSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Read Bytes/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-ReadsSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Reads/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-TransfersSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Transfers/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-WriteBytesSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Write Bytes/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-Disk-WritesSec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Disk Writes/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-LogicalDisk-FreeMegabytes",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "LogicalDisk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Free Megabytes"
+                    }
+                },
+                {
+                    "name": "VMInsights-Memory-AvailableMBytes",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "Memory",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Available MBytes"
+                    }
+                },
+                {
+                    "name": "VMInsights-NetworkAdapter-BytesReceived-sec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "Network Adapter",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Bytes Received/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-NetworkAdapter-BytesSent-sec",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "Network Adapter",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "Bytes Sent/sec"
+                    }
+                },
+                {
+                    "name": "VMInsights-Processor-Pct-Processor-Time-Total",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "Processor",
+                        "instanceName": "_Total",
+                        "intervalSeconds": 60,
+                        "counterName": "% Processor Time"
+                    }
+                },
+                {
+                    "name": "VMInsights-Process-Pct-Processor-Time",
+                    "kind": "WindowsPerformanceCounter",
+                    "properties": {
+                        "objectName": "Process",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "counterName": "% Processor Time"
+                    }
+                },
+                {
+                    "name": "VMInsights-Logical-Disk-Linux",
+                    "kind": "LinuxPerformanceObject",
+                    "properties": {
+                        "objectName": "Logical Disk",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "performanceCounters": [
+                            {
+                                "counterName": "% Used Space"
+                            },
+                            {
+                                "counterName": "Disk Read Bytes/sec"
+                            },
+                            {
+                                "counterName": "Disk Reads/sec"
+                            },
+                            {
+                                "counterName": "Disk Transfers/sec"
+                            },
+                            {
+                                "counterName": "Disk Write Bytes/sec"
+                            },
+                            {
+                                "counterName": "Disk Writes/sec"
+                            },
+                            {
+                                "counterName": "Free Megabytes"
+                            },
+                            {
+                                "counterName": "Logical Disk Bytes/sec"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "VMInsights-Memory-Linux",
+                    "kind": "LinuxPerformanceObject",
+                    "properties": {
+                        "objectName": "Memory",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "performanceCounters": [
+                            {
+                                "counterName": "Available MBytes Memory"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "VMInsights-Network",
+                    "kind": "LinuxPerformanceObject",
+                    "properties": {
+                        "objectName": "Network",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "performanceCounters": [
+                            {
+                                "counterName": "Total Bytes Received"
+                            },
+                            {
+                                "counterName": "Total Bytes Transmitted"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "VMInsights-Processor-Pct-Processor-Time-Linux",
+                    "kind": "LinuxPerformanceObject",
+                    "properties": {
+                        "objectName": "Processor",
+                        "instanceName": "*",
+                        "intervalSeconds": 60,
+                        "performanceCounters": [
+                            {
+                                "counterName": "% Processor Time"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "DataSource_LinuxPerformanceCollection",
+                    "kind": "LinuxPerformanceCollection",
+                    "properties": {
+                        "state": "Enabled"
+                    }
+                }
+            ]
+        }
+    }
+}

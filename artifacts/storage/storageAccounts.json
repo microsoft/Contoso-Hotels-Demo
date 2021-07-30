@@ -1,0 +1,86 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{  
+   "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion":"1.0.0.0",
+   "parameters":{  
+      "resourceNames": {
+         "type": "object"
+      }
+   },
+   "variables":{
+      "storageAccounts": [
+         {
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+            "name": "[parameters('resourceNames').primaryDiagStorageAccountName]"
+            
+         },
+         {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+            "name": "[parameters('resourceNames').secondaryDiagStorageAccountName]"
+         }
+      ]
+   },
+   "resources":[
+      {
+         "name": "[variables('storageAccounts')[copyIndex()].name]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "copy": {
+            "name": "storageLoop",
+            "count": "[length(variables('storageAccounts'))]"
+         },
+         "resourceGroup": "[variables('storageAccounts')[copyIndex()].resourceGroupName]",
+         "properties": {
+            "mode": "Incremental",
+            "expressionEvaluationOptions": {
+               "scope": "inner"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('storageAccounts')[copyIndex()].location]"
+               },
+               "name": {
+                  "value": "[variables('storageAccounts')[copyIndex()].name]"
+               }
+            },
+            "template": {
+               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+               "contentVersion": "1.0.0.0",
+               "parameters": {
+                  "location": {
+                     "type": "string"
+                  },
+                  "name": {
+                     "type": "string"
+                  },
+                  "tags": {
+                     "type": "object",
+                     "defaultValue": {}
+                  },
+                  "sku": {
+                     "type": "string",
+                     "defaultValue": "Standard_LRS"
+                  }
+               },
+               "resources": [
+                  {
+                     "type": "Microsoft.Storage/storageAccounts",
+                     "name": "[parameters('name')]",
+                     "apiVersion": "2021-02-01",
+                     "tags": "[parameters('tags')]",
+                     "location": "[parameters('location')]",
+                     "sku": {
+                        "name": "[parameters('sku')]"
+                     },
+                     "kind": "StorageV2"
+                  }
+               ]
+            }
+         }
+      }
+   ]
+ }

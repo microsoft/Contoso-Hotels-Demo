@@ -1,0 +1,54 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+	    "resourceNames": {
+    	    "type": "object"
+    	},
+		"_artifactsLocation": {
+			"type": "string"
+		},
+		"_artifactsLocationSasToken": {
+			"type": "securestring"
+		}
+	},
+  	"variables": {
+		"location": "[parameters('resourceNames').primaryLocation]",
+		"vmName": "[parameters('resourceNames').be00VmName]",
+		"testFileName": "CPULoadTest.ps1",
+		"setupFileName": "CPULoadTestSetup.ps1",
+		"setupFilePaths": "[concat('.\\backend\\cpuLoadScripts\\', variables('setupFileName'))]",
+		"scheduledTaskName": "CPULoadTestTask",
+		"delayBeforeStartTest": "2400",
+		"scriptDirectory": "C:\\CPULoadTest"
+	},
+	"resources": [
+		{
+			"name": "[concat(variables('vmName'), '/deployCPULoadTest')]",
+			"type": "Microsoft.Compute/virtualMachines/extensions",
+			"location": "[variables('location')]",
+			"apiVersion": "2020-06-01",
+			"tags": {
+				"displayName": "deployCPULoadTest"
+			},
+			"properties": {
+				"publisher": "Microsoft.Compute",
+				"type": "CustomScriptExtension",
+				"typeHandlerVersion": "1.4",
+				"autoUpgradeMinorVersion": true,
+				"settings": {
+					"fileUris": [
+						"[concat(parameters('_artifactsLocation'), 'backend/cpuLoadScripts/', variables('testFileName'), parameters('_artifactsLocationSasToken'))]",
+						"[concat(parameters('_artifactsLocation'), 'backend/cpuLoadScripts/', variables('setupFileName'), parameters('_artifactsLocationSasToken'))]"
+					]
+				},
+				"protectedSettings": {
+					"commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('setupFilePaths'), ' -scriptDirectory ', variables('scriptDirectory'), ' -scriptFileName ', variables('testFileName'), ' -scheduledTaskName ', variables('scheduledTaskName'), ' -delayBeforeStartTest ', variables('delayBeforeStartTest'))]"
+				}
+			}
+		}
+  ]
+}

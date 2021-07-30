@@ -1,0 +1,74 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "templateLink": "[concat(parameters('_artifactsLocation'),'common/peering.json', parameters('_artifactsLocationSasToken'))]",
+        "peerings":[
+            {
+                "location": "[parameters('resourceNames').primaryLocation]",
+                "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                "name": "[concat(parameters('resourceNames').primaryVnetName, '-to-', parameters('resourceNames').secondaryVnetName)]",
+                "localVirtualNetworkName": "[parameters('resourceNames').primaryVnetName]",
+                "remoteVirtualNetworkName": "[parameters('resourceNames').secondaryVnetName]",
+                "remoteVirtualNetworkRGName": "[parameters('resourceNames').secondaryOpsRGName]"
+            },
+            {
+                "location": "[parameters('resourceNames').secondaryLocation]",
+                "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+                "name": "[concat(parameters('resourceNames').secondaryVnetName, '-to-', parameters('resourceNames').primaryVnetName)]",
+                "localVirtualNetworkName": "[parameters('resourceNames').secondaryVnetName]",
+                "remoteVirtualNetworkName": "[parameters('resourceNames').primaryVnetName]",
+                "remoteVirtualNetworkRGName": "[parameters('resourceNames').primaryOpsRGName]"
+            }
+         ]
+    },
+    "resources": [
+        {
+            "name": "[variables('peerings')[copyIndex()].name]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "copy": {
+                "name": "peeringLoop",
+                "count": "[length(variables('peerings'))]"
+            },
+            "resourceGroup": "[variables('peerings')[copyIndex()].resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                "uri": "[variables('templateLink')]", 
+                "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('peerings')[copyIndex()].location]"
+                    },
+                    "name": {
+                        "value": "[concat(variables('peerings')[copyIndex()].localVirtualNetworkName, '/', variables('peerings')[copyIndex()].name)]"
+                    },
+                    "remoteVirtualNetworkName": {
+                        "value": "[variables('peerings')[copyIndex()].remoteVirtualNetworkName]"
+                    },
+                    "remoteVirtualNetworkRGName": {
+                        "value": "[variables('peerings')[copyIndex()].remoteVirtualNetworkRGName]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

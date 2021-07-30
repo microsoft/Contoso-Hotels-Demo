@@ -1,0 +1,374 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "vmName": {
+      "type": "string"
+    },
+    "computerName": {
+      "type": "string",
+      "defaultValue": "[parameters('vmName')]"
+    },
+    "vmSize": {
+      "type": "string"
+    },
+    "vmDataDiskCount": {
+      "type": "int",
+      "minValue": 0,
+      "maxValue": 10,
+      "defaultValue": 0
+    },
+    "vmDataDiskSize": {
+      "type": "int",
+      "minValue": 32,
+      "maxValue": 1023,
+      "defaultValue": 32,
+      "metadata": {
+        "description": "Size of each data disk in GB on each SQL Server VM (Min=128, Max=1023)"
+      }
+    },
+    "imagePublisher": {
+      "type": "string"
+    },
+    "imageOffer": {
+      "type": "string"
+    },
+    "imageSKU": {
+      "type": "string"
+    },
+    "imageVersion": {
+      "type": "string",
+      "defaultValue": "latest"
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {}
+    },
+    "availabilitySetName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "domainToJoin": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "The FQDN of the AD domain"
+      }
+    },
+    "ouPath": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Specifies an organizational unit (OU) for the domain account. Enter the full distinguished name of the OU in quotation marks. Example: \"OU=testOU; DC=domain; DC=Domain; DC=com\""
+      }
+    },
+    "domainJoinOptions": {
+      "type": "int",
+      "defaultValue": 3,
+      "metadata": {
+        "description": "Set of bit flags that define the join options. Default value of 3 is a combination of NETSETUP_JOIN_DOMAIN (0x00000001) & NETSETUP_ACCT_CREATE (0x00000002) i.e. will join the domain and create the account on the domain. For more information see https://msdn.microsoft.com/en-us/library/aa392154(v=vs.85).aspx"
+      }
+    },
+    "diagStorageAccountId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "subnetResourceId": {
+      "type": "string"
+    },
+    "staticPrivateIpAddress": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "publicIPAddressResourceId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "nsgResourceId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "osType": {
+      "type": "string",
+      "defaultValue": "Windows"
+    },
+    "role": {
+      "type": "string",
+      "allowedValues": [
+        "SRV",
+        "DC",
+        "IIS",
+        "SQL"
+      ],
+      "defaultValue": "SRV"
+    },
+    "recoveryVaultName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "recoveryVaultRGName": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "lbBEAddressPoolID": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "dnsServers": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "appInsightsInstrumentationKey": {
+      "type": "string",
+      "defaultvalue": ""
+    }
+  },
+  "variables": {
+    "deployedResourcesTags": "[parameters('tags')]",
+    "enableDiagnostics": "[not(empty(parameters('diagStorageAccountId')))]",
+    "diagStorageAccountName": "[last(split(parameters('diagStorageAccountId'), '/'))]",
+    "vmName": "[parameters('vmName')]",
+    "nicName": "[concat(variables('vmName'), '-nic')]",
+    "availabilitySetResourceId": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]",
+    "wadlogs": "<WadCfg> <DiagnosticMonitorConfiguration overallQuotaInMB=\"4096\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2010/10/DiagnosticsConfiguration\"> <DiagnosticInfrastructureLogs scheduledTransferLogLevelFilter=\"Error\"/> <WindowsEventLog scheduledTransferPeriod=\"PT1M\" > <DataSource name=\"Application!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"Security!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"System!*[System[(Level = 1 or Level = 2)]]\" /></WindowsEventLog>",
+    "wadperfcounters1": "<PerformanceCounters scheduledTransferPeriod=\"PT1M\"><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Processor Time\" sampleRate=\"PT60S\" unit=\"Percent\"><annotation displayName=\"CPU utilization\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\System\\Processes\" sampleRate=\"PT60S\" unit=\"Count\"><annotation displayName=\"Processes\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Available Bytes\" sampleRate=\"PT60S\" unit=\"Bytes\"><annotation displayName=\"Memory available\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Time\" sampleRate=\"PT60S\" unit=\"Percent\"><annotation displayName=\"Disk active time\" locale=\"en-us\"/></PerformanceCounterConfiguration>",
+    "wadperfcounters2": "<PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec\" sampleRate=\"PT60S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk read speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec\" sampleRate=\"PT60S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk write speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)Avg. Disk Queue Length\" sampleRate=\"PT60S\" unit=\"Count\"><annotation displayName=\"Avg. Disk Queue Length\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\LogicalDisk(_Total)\\% Free Space\" sampleRate=\"PT60S\" unit=\"Percent\"><annotation displayName=\"Disk free space (percentage)\" locale=\"en-us\"/></PerformanceCounterConfiguration></PerformanceCounters>",
+    "crashdumps": "[if(equals(parameters('role'), 'IIS'), '<CrashDumps containerName=\"wad-crashdumps\" directoryQuotaPercentage=\"30\" dumpType=\"Mini\"><CrashDumpConfiguration processName=\"w3wp.exe\"/></CrashDumps>', '')]",
+
+    "sinksConfig": "[if(empty(parameters('appInsightsInstrumentationKey')), '', concat('<SinksConfig><Sink name=\"ApplicationInsights\"><ApplicationInsights>', parameters('appInsightsInstrumentationKey'), '</ApplicationInsights></Sink>', '<Sink name=\"ApplicationInsightsProfiler\"><ApplicationInsightsProfiler>', parameters('appInsightsInstrumentationKey'), '</ApplicationInsightsProfiler></Sink>', '</SinksConfig>'))]",
+
+    "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), variables('crashdumps'), '<Metrics resourceId=\"')]",
+    "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
+    "wadcfgxend": "[concat('\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration>', variables('sinksConfig'), '</WadCfg>')]",
+    
+    "xmlCfg": "[base64(concat(variables('wadcfgxstart'), variables('wadmetricsresourceid'), variables('vmName'), variables('wadcfgxend')))]",
+
+    "publicIPAddress": {
+      "id": "[parameters('publicIPAddressResourceId')]"
+    },
+    "identity": {
+      "type": "SystemAssigned"
+    },
+    "networkSecurityGroup": {
+      "id": "[parameters('nsgResourceId')]"
+    },
+    "vmAvSetProperties": {
+      "id": "[variables('availabilitySetResourceId')]"
+    },
+    "dataDisksCount":"[if(equals(parameters('vmDataDiskCount'),0),1,parameters('vmDataDiskCount'))]",
+    "copy": [
+      {
+        "name": "dataDisks",
+        "count": "[variables('dataDisksCount')]",
+        "input": {
+          "createOption": "Empty",
+          "lun": "[copyIndex('dataDisks')]",
+          "diskSizeGB": "[parameters('vmDataDiskSize')]",
+          "caching": "ReadOnly",
+          "managedDisk": {
+            "storageAccountType": "Premium_LRS"
+          }
+        }
+      }
+    ],
+    "loadBalancerBackendAddressPools": [
+      {
+        "id": "[parameters('lbBEAddressPoolID')]"
+      }
+    ],
+    "vmResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]",
+    "backupFabric": "Azure",
+    "backupPolicyName": "DefaultPolicy",
+    "protectionContainer": "[concat('iaasvmcontainer;iaasvmcontainerv2;', resourceGroup().name, ';', variables('vmName'))]",
+    "protectedItem": "[concat('vm;iaasvmcontainerv2;', resourceGroup().name, ';', variables('vmName'))]"
+  },
+  "resources": [
+    {
+      "name": "[variables('nicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location')]",
+      "apiVersion": "2020-07-01",
+      "tags": "[variables('deployedResourcesTags')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "[if(empty(parameters('staticPrivateIpAddress')),'Dynamic','Static')]",
+              "privateIPAddress": "[parameters('staticPrivateIpAddress')]",
+              "subnet": {
+                "id": "[parameters('subnetResourceId')]"
+              },
+              "publicIPAddress": "[if(empty(parameters('publicIPAddressResourceId')), json('null'), variables('publicIPAddress'))]",
+              "loadBalancerBackendAddressPools": "[if(empty(parameters('lbBEAddressPoolID')), json('null'), variables('loadBalancerBackendAddressPools'))]"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": "[if(empty(parameters('dnsServers')), json('null'), parameters('dnsServers'))]"
+        },
+        "networkSecurityGroup": "[if(empty(parameters('nsgResourceId')), json('null'), variables('networkSecurityGroup'))]"
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('vmName')]",
+      "identity": "[if(empty(parameters('appInsightsInstrumentationKey')), json('null'), variables('identity'))]",
+      "tags": "[variables('deployedResourcesTags')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "properties": {
+        "availabilitySet": "[if(empty(parameters('availabilitySetName')), json('null'),variables('vmAvSetProperties'))]",
+        "licenseType": "[if(equals(parameters('osType'), 'Windows'), 'Windows_Server', json('null'))]",
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('computerName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSku')]",
+            "version": "[parameters('imageVersion')]"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('vmName'),'-osdisk')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": "[if(equals(parameters('vmDataDiskCount'), 0), json('null'), variables('dataDisks'))]"
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "[variables('enableDiagnostics')]",
+            "storageUri": "[if(variables('enableDiagnostics'), reference(parameters('diagStorageAccountId'), '2019-06-01').primaryEndpoints['blob'], json('null'))]"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "2020-06-01",
+      "name": "[concat(variables('vmName'), '/DiagnosticsSettings')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "condition": "[and(variables('enableDiagnostics'), equals(parameters('osType'), 'Windows'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+      ],
+      "tags": {
+        "displayName": "AzureDiagnostics"
+      },
+      "properties": {
+        "publisher": "Microsoft.Azure.Diagnostics",
+        "type": "IaaSDiagnostics",
+        "typeHandlerVersion": "1.5",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "xmlCfg": "[variables('xmlCfg')]",
+          "storageAccount": "[variables('diagStorageAccountName')]"
+        },
+        "protectedSettings": {
+          "storageAccountName": "[variables('diagStorageAccountName')]",
+          "storageAccountKey": "[if(variables('enableDiagnostics'), listkeys(parameters('diagStorageAccountId'), '2019-06-01').keys[0].value, '')]",
+          "storageAccountEndPoint": "[concat('https://', environment().suffixes.storage)]"
+        }
+      }
+    },
+    {
+      "name": "[concat(parameters('vmName'), '/joinDomain')]",
+      "apiVersion": "2020-06-01",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "condition": "[not(empty(parameters('domainToJoin')))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'DiagnosticsSettings')]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "JsonADDomainExtension",
+        "typeHandlerVersion": "1.3",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "Name": "[parameters('domainToJoin')]",
+          "OUPath": "[parameters('ouPath')]",
+          "User": "[concat(parameters('domainToJoin'), '\\', parameters('adminUsername'))]",
+          "Restart": "true",
+          "Options": "[parameters('domainJoinOptions')]"
+        },
+        "protectedSettings": {
+          "Password": "[parameters('adminPassword')]"
+        }
+      }
+    },
+    {
+      "name": "[concat(variables('vmName'), 'BackupDeployment')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "condition": "[not(empty(parameters('recoveryVaultName')))]",
+      "resourceGroup": "[parameters('recoveryVaultRGName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {},
+          "variables": {},
+          "resources": [
+            {
+              "name": "[concat(parameters('recoveryVaultName'), '/', variables('backupFabric'), '/', variables('protectionContainer'), '/', variables('protectedItem'))]",
+              "apiVersion": "2016-06-01",
+              "location": "[parameters('location')]",
+              "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+              "properties": {
+                "protectedItemType": "Microsoft.Compute/virtualMachines",
+                "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies', parameters('recoveryVaultName'), variables('backupPolicyName') )]",
+                "sourceResourceId": "[variables('vmResourceId')]"
+              }
+            }
+          ]
+        },
+        "parameters": {},
+        "outputs": {}
+      }
+    }
+  ],
+  "outputs": {
+    "nicName": {
+      "type": "string",
+      "value": "[variables('nicName')]"
+    },
+    "privateIpAddress": {
+      "type": "string",
+      "value": "[parameters('staticPrivateIpAddress')]"
+    }
+  }
+}

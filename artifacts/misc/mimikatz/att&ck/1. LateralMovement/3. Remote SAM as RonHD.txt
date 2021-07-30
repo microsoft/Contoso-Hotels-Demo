@@ -1,0 +1,13 @@
+﻿# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+# klist
+klist
+pause
+# should be ran in context of RonHD
+Import-Module C:\tools\PowerSploit\PowerSploit.psm1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+Get-NetLocalGroup 10.0.16.8
+pause
+dir \\adminpc\c$
+pause

@@ -1,0 +1,28 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+{
+    "identity": {
+        "type": "SystemAssigned"
+    },
+    "location": "eastus",
+    "properties": {
+        "blueprintId": "/subscriptions/d414ea4b-83dc-47b3-b97f-a817d2fac5da/providers/Microsoft.Blueprint/blueprints/Simple",
+        "resourceGroups": {
+        },
+        "locks": {
+            "mode": "none"
+        },
+        "parameters": {
+            "listOfResourceTypes": {
+                "value": [
+                    "Microsoft.Compute/virtualMachines",
+                    "Microsoft.Compute/virtualMachineScaleSets"
+                ]
+            },
+            "listOfAllowedLocations": {
+                "value": [ "CentralUS", "EastUS", "EastUS2", "NorthCentralUS", "SouthCentralUS", "WestUS", "WestUS2", "WestCentralUS" ]
+            }
+        }
+    }
+}

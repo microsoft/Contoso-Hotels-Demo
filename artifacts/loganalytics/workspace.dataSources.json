@@ -1,0 +1,38 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceName": {
+            "type": "string"
+        },
+        "location": {
+            "type": "string"
+       },
+       "dataSources": {
+           "type": "array"
+       }
+    },
+    "variables": {
+        "dataSources": "[parameters('dataSources')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "name": "[concat(parameters('workspaceName'), '/', variables('dataSources')[copyIndex()].name)]",
+            "kind": "[variables('dataSources')[copyIndex()].kind]",
+            "apiVersion": "2020-08-01",
+            "location": "[parameters('location')]",
+            "copy": {
+                "name": "dataSourceLoop",
+                "count": "[length(variables('dataSources'))]",
+                "mode": "serial",
+                "batchSize": 10
+            },
+            "properties": "[variables('dataSources')[copyIndex()].properties]"
+        }
+    ],
+    "outputs": {}
+ }

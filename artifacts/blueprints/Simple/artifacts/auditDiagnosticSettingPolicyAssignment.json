@@ -1,0 +1,17 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+{
+    "properties": {
+        "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/7f89b1eb-583c-429a-8828-af049802c1d9",
+        "parameters": {
+            "listOfResourceTypes": {
+                "value": "[parameters('listOfResourceTypes')]"
+            }
+        },
+        "dependsOn": [],
+        "displayName": "Audit diagnostic setting"
+    },
+    "kind": "policyAssignment",
+    "type": "Microsoft.Blueprint/blueprints/artifacts"
+}

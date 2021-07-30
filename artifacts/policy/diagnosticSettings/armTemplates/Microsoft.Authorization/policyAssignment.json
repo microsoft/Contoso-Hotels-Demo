@@ -1,0 +1,66 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string"
+        },
+        "displayName": {
+            "type": "string"
+        },
+        "identityType": {
+            "type": "string",
+            "defaultValue": "None"
+        },
+        "scope": {
+            "type": "string",
+            "defaultValue": "[subscription().id]"
+        },
+        "notScopes": {
+            "type": "array",
+            "defaultValue": []
+        },
+        "policyDefinitionId": {
+            "type": "string"
+        },
+        "parameters": {
+            "type": "object",
+            "defaultValue": {}
+        }
+    },
+    "functions": [],
+    "variables": {
+        "assignmentName": "[guid(parameters('scope'), parameters('displayName'))]"
+    },
+    "resources": [
+		{
+			"type": "Microsoft.Authorization/policyAssignments",
+            "apiVersion": "2019-09-01",
+			"name": "[variables('assignmentName')]",
+			"location": "[parameters('location')]",
+			"identity": {
+                "type": "[parameters('identityType')]"
+            },
+			"properties": {
+				"displayName": "[parameters('displayName')]",
+				"scope": "[parameters('scope')]",
+				"notScopes": "[parameters('notScopes')]",
+				"policyDefinitionId": "[parameters('policyDefinitionId')]",
+				"parameters": "[parameters('parameters')]"
+			}
+		}
+    ],
+    "outputs": {
+        "principalId": {
+            "type": "string",
+            "value": "[if(equals(parameters('identityType'), 'None'), '__blank__', reference(variables('assignmentName'), '2019-09-01', 'Full').identity.principalId)]"
+        },
+        "policyAssignmentId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Authorization/policyAssignments', variables('assignmentName'))]"
+        }
+    }
+}

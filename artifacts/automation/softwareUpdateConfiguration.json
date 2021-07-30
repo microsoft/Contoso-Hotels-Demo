@@ -1,0 +1,80 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "automationAccountName": {
+      "type": "string"
+    },
+    "startTime": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "configuration": {
+      "name": "Update VMs in update domain",
+      "duration": "PT2H0M",
+      "classifications": "Critical,Security",
+      "frequency": "Week",
+      "interval": 1,
+      "weekDay": "Sunday"
+    },
+    "startTime": [
+      "[concat(split(parameters('startTime'), 'T')[0], 'T02:15:00.000')]",
+      "[concat(split(parameters('startTime'), 'T')[0], 'T04:15:00.000')]"
+    ]
+  },
+  "resources": [
+    {
+      "apiVersion": "2020-01-13-preview",
+      "type": "Microsoft.Automation/automationAccounts/softwareUpdateConfigurations",
+      "name": "[concat(parameters('automationAccountName'), '/', variables('configuration').name, ' ', copyindex())]",
+      "copy": {
+        "name": "virtualMachineLoop",
+        "count": "[length(variables('startTime'))]"
+      },
+      "properties": {
+        "updateConfiguration": {
+          "operatingSystem": "Windows",
+          "duration": "[variables('configuration').duration]",
+          "windows": {
+            "rebootSetting": "IfRequired",
+            "includedUpdateClassifications": "[variables('configuration').classifications]"
+          },
+          "targets": {
+            "azureQueries": [
+              {
+                "scope": [
+                  "[subscription().Id]"
+                ],
+                "tagSettings": {
+                  "tags": { "updateDomain": [ "[copyindex()]" ] },
+                  "filterOperator": "All"
+                }
+              }
+            ]
+          }
+        },
+        "scheduleInfo": {
+          "frequency": "[variables('configuration').frequency]",
+          "startTime": "[variables('startTime')[copyindex()]]",
+          "timeZone": "America/Los_Angeles",
+          "interval": "[variables('configuration').interval]",
+          "advancedSchedule": {
+            "weekDays": [ "[variables('configuration').weekDay]" ]
+          }
+        },
+        "tasks": {
+          "preTask": {
+            "source": "UpdateManagement-PreScript"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+
+  }
+}

@@ -1,0 +1,37 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "location": {
+         "type": "string"
+      },
+      "name": {
+         "type": "string"
+      },
+      "tags": {
+         "type": "object",
+         "defaultValue": {}
+      },
+      "securityRules": {
+         "type": "array",
+         "defaultValue": []
+      }
+   },
+   "variables": {},
+   "resources": [
+      {
+         "name": "[parameters('name')]",
+         "type": "Microsoft.Network/networkSecurityGroups",
+         "apiVersion": "2020-11-01",
+         "tags": "[parameters('tags')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "securityRules": "[parameters('securityRules')]"
+         }
+      }
+   ],
+   "outputs": {}
+}

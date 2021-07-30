@@ -1,0 +1,245 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+		"adminUsername": {
+			"type": "string"
+		},
+		"adminPassword": {
+			"type": "securestring"
+		},
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+	},
+	 "variables": {
+		 "sites": [
+			{
+				"location": "[parameters('resourceNames').primaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').primaryInfraRGName]",
+				"availabilitySetName": "[parameters('resourceNames').primaryAddsASetName]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').addsSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').primaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').primaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').dc00VmName]",
+						"computerName": "[parameters('resourceNames').dc00ComputerName]",
+						"ipAddress": "[parameters('resourceNames').dc00VmIp]"
+					},
+					{
+						"vmName": "[parameters('resourceNames').dc01VmName]",
+						"computerName": "[parameters('resourceNames').dc01ComputerName]",
+						"ipAddress": "[parameters('resourceNames').dc01VmIp]"
+					}
+				]
+			},
+			{
+				"location": "[parameters('resourceNames').secondaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').secondaryInfraRGName]",
+				"availabilitySetName": "[parameters('resourceNames').secondaryAddsASetName]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').secondaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').addsSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').secondaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').dc02VmName]",
+						"computerName": "[parameters('resourceNames').dc02ComputerName]",
+						"ipAddress": "[parameters('resourceNames').dc02VmIp]"
+					},
+					{
+						"vmName": "[parameters('resourceNames').dc03VmName]",
+						"computerName": "[parameters('resourceNames').dc03ComputerName]",
+						"ipAddress": "[parameters('resourceNames').dc03VmIp]"
+					}
+				]
+			}
+		 ]
+	 },
+	 "resources": [
+      	{
+			"name": "[concat('Deploy_ADDS_to_site', copyIndex())]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "siteLoop",
+				"count": "[length(variables('sites'))]"
+			},
+			"resourceGroup": "[variables('sites')[copyIndex()].resourceGroupName]",
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('sites')[copyIndex()].location]"
+					},
+					"availabilitySetName": {
+						"value": "[variables('sites')[copyIndex()].availabilitySetName]"
+					},
+					"adminUsername": {
+						"value": "[parameters('adminUsername')]"
+					},
+					"adminPassword": {
+						"value": "[parameters('adminPassword')]"
+					},
+					"virtualMachines": {
+						"value": "[variables('sites')[copyIndex()].virtualMachines]"
+					},
+					"diagStorageAccountResourceId": {
+						"value": "[variables('sites')[copyIndex()].diagStorageAccountResourceId]"
+					},
+					"subnetResourceId": {
+						"value": "[variables('sites')[copyIndex()].subnetResourceId]"
+					},
+					"recoveryVaultName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultName]"
+					},
+					"recoveryVaultRGName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultRGName]"
+					},
+					"_artifactsLocation": {
+						"value": "[parameters('_artifactsLocation')]"
+					},
+					"_artifactsLocationSasToken": {
+						"value": "[parameters('_artifactsLocationSasToken')]"
+					}
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+						"availabilitySetName": {
+							"type": "string"
+						},
+						"adminUsername": {
+							"type": "string"
+						},
+						"adminPassword": {
+							"type": "securestring"
+						},
+						"virtualMachines": {
+							"type": "array"
+						},
+						"diagStorageAccountResourceId": {
+							"type": "string"
+						},
+						"subnetResourceId": {
+							"type": "string"
+						},
+						"recoveryVaultName": {
+							"type": "string"
+						},
+						"recoveryVaultRGName": {
+							"type": "string"
+						},
+						"_artifactsLocation": {
+							"type": "string"
+						},
+						"_artifactsLocationSasToken": {
+							"type": "securestring"
+						}
+					},
+					"variables": {
+						"vmTemplateLink": "[concat(parameters('_artifactsLocation'),'common/vm.json', parameters('_artifactsLocationSasToken'))]"
+					},
+					"resources": [
+						{  
+							"apiVersion": "2020-06-01",
+							"type": "Microsoft.Compute/availabilitySets",
+							"location": "[parameters('location')]",
+							"name": "[parameters('availabilitySetName')]",
+							"properties": {  
+								"PlatformUpdateDomainCount": 20,
+								"PlatformFaultDomainCount": 2
+							},
+							"sku": {
+								"name": "Aligned"
+							}
+						},
+						{
+							"name": "[concat('Deploy_VM', copyIndex())]",
+							"type": "Microsoft.Resources/deployments",
+							"apiVersion": "2020-10-01",
+							"copy": {
+								"name": "virtualMachineLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
+							],
+							"properties": {
+								"mode": "Incremental",
+								"templateLink": {
+									"uri": "[variables('vmTemplateLink')]"
+								},
+								"parameters": {
+									"location": {
+										"value": "[parameters('location')]"
+									},
+									"vmName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].vmName]"
+									},
+									"computerName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].computerName]"
+									},
+									"vmSize": {
+										"value": "Standard_D2s_v3"
+									},
+									"adminUsername": {
+										"value": "[parameters('adminUsername')]"
+									},
+									"adminPassword": {
+										"value": "[parameters('adminPassword')]"
+									},
+									"availabilitySetName": {
+										"value": "[parameters('availabilitySetName')]"
+									},
+									"imagePublisher": {
+										"value": "MicrosoftWindowsServer"
+									},
+									"imageOffer": {
+										"value": "WindowsServer"
+									},
+									"imageSKU": {
+										"value": "2016-Datacenter"
+									},
+									"diagStorageAccountId": {
+										"value": "[parameters('diagStorageAccountResourceId')]"
+									},
+									"subnetResourceId": {
+										"value": "[parameters('subnetResourceId')]"
+									},
+									"recoveryVaultName": {
+										"value": "[parameters('recoveryVaultName')]"
+									},
+									"recoveryVaultRGName": {
+										"value": "[parameters('recoveryVaultRGName')]"
+									},
+									"staticPrivateIpAddress": {
+										"value": "[parameters('virtualMachines')[copyIndex()].ipAddress]"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		}
+	]
+}

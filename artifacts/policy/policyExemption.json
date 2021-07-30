@@ -1,0 +1,60 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "scope": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "policyAssignmentId": {
+            "type": "string"
+        },
+        "policyDefinitionReferenceIds": {
+            "type": "array",
+            "defaultValue": []
+        },
+        "exemptionCategory": {
+            "type": "string",
+            "defaultValue": "Waiver",
+            "allowedValues": [
+                "Waiver",
+                "Mitigated"
+            ]
+        },
+        "expiresOn": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "displayName": {
+            "type": "string"
+        },
+        "description": {
+            "type": "string",
+            "defaultValue": "[parameters('displayName')]"
+        },
+        "metadata": {
+            "type": "object",
+            "defaultValue": {}
+        }
+    },
+    "resources": [
+        {
+            "name": "[guid(parameters('displayName'))]",
+            "type": "Microsoft.Authorization/policyExemptions",
+            "apiVersion": "2020-07-01-preview",
+            "scope": "[parameters('scope')]",
+            "properties": {
+                "policyAssignmentId": "[parameters('policyAssignmentId')]",
+                "policyDefinitionReferenceIds": "[parameters('policyDefinitionReferenceIds')]",
+                "exemptionCategory": "[parameters('exemptionCategory')]",
+                "expiresOn": "[parameters('expiresOn')]",
+                "displayName": "[parameters('displayName')]",
+                "description": "[parameters('description')]",
+                "metadata": "[parameters('metadata')]"
+            }
+        }
+    ],
+}

@@ -1,0 +1,110 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+{
+  "name": "workspaceTemplate",
+  "type": "Microsoft.Blueprint/blueprints/artifacts",
+  "kind": "template",
+  "properties": {
+    "resourceGroup": "priOpsRG",
+    "displayName": "Web App template",
+    "parameters": {
+        "location": {
+          "value": "[parameters('primaryLocation')]"
+        },
+        "appServiceName": {
+          "value": "[parameters('appServiceName')]"
+        },
+        "appServicePlanName": {
+          "value": "[parameters('appServicePlanName')]"
+        }
+    },
+    "template": {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "location": {
+          "type": "string",
+          "metadata": {
+            "description": "Resource location"
+          }
+        },
+        "appServiceName": {
+          "type": "string",
+          "metadata": {
+            "description": "App Service name"
+          }
+        },
+        "appServicePlanName": {
+          "type": "string",
+          "metadata": {
+            "description": "App Service plan name"
+          }
+        },    
+        "environments": {
+          "type": "array",
+          "defaultValue": [
+            "Dev",
+            "QA",
+            "UAT",
+            "Preview"
+          ],
+          "metadata": {
+            "description": "Array with the names for the environment slots"
+          },
+          "maxLength": 19
+        }
+      },
+      "variables": {
+        "standardPlanMaxAdditionalSlots": 4,
+        "webAppPortalName": "[parameters('appServiceName')]",
+        "appServicePlanName": "[parameters('appServicePlanName')]"
+      },
+      "resources": [
+        {
+          "apiVersion": "2020-09-01",
+          "type": "Microsoft.Web/serverfarms",
+          "kind": "app",
+          "name": "[variables('appServicePlanName')]",
+          "location": "[parameters('location')]",
+          "comments": "This app service plan is used for the web app and slots.",
+          "sku": {
+            "name": "[if(lessOrEquals(length(parameters('environments')), variables('standardPlanMaxAdditionalSlots')), 'S1', 'P1')]"
+          }
+        },
+        {
+          "apiVersion": "2020-09-01",
+          "type": "Microsoft.Web/sites",
+          "kind": "app",
+          "name": "[variables('webAppPortalName')]",
+          "location": "[parameters('location')]",
+          "comments": "This is the web app, also the default 'nameless' slot.",
+          "properties": {
+            "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+          ]
+        },
+        {
+          "apiVersion": "2020-09-01",
+          "type": "Microsoft.Web/sites/slots",
+          "name": "[concat(variables('webAppPortalName'), '/', parameters('environments')[copyIndex()])]",
+          "kind": "app",
+          "location": "[parameters('location')]",
+          "comments": "This specifies the web app slots.",
+          "properties": {
+            "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/Sites', variables('webAppPortalName'))]"
+          ],
+          "copy": {
+            "name": "webPortalSlot",
+            "count": "[length(parameters('environments'))]"
+          }
+        }
+      ]
+    }
+  }
+}

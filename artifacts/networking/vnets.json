@@ -1,0 +1,250 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "tags": {
+            "type": "object"
+        },
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "templateLink": "[concat(parameters('_artifactsLocation'),'common/vnet.json', parameters('_artifactsLocationSasToken'))]",
+        "primarySite": {
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+            "tags": "[parameters('tags').primaryOps]",
+            "vnetName": "[parameters('resourceNames').primaryVnetName]",
+            "addressPrefixes": [
+                "10.1.0.0/16"
+            ],
+            "dnsServers": [
+                "[parameters('resourceNames').dc00VmIp]",
+                "[parameters('resourceNames').dc01VmIp]",
+                "[parameters('resourceNames').dc02VmIp]",
+                "[parameters('resourceNames').dc03VmIp]",
+                "168.63.129.16"
+            ],
+            "subnets": [
+                {
+                    "name": "[parameters('resourceNames').dmzSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.0.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primaryDmzSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appGateSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.1.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primaryAppGateSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').addsSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.2.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primaryAddsSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appFESubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.3.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primaryAppFESubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appBESubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.4.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primaryAppBESubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').sqlSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.5.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').primarySqlSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').bastionSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.1.10.0/24"
+                    }
+                }
+            ]
+        },
+        "secondarySite": {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+            "tags": "[parameters('tags').secondaryOps]",
+            "vnetName": "[parameters('resourceNames').secondaryVnetName]",
+            "addressPrefixes": [
+                "10.2.0.0/16"
+            ],
+            "dnsServers": [
+                "[parameters('resourceNames').dc00VmIp]",
+                "[parameters('resourceNames').dc01VmIp]",
+                "[parameters('resourceNames').dc02VmIp]",
+                "[parameters('resourceNames').dc03VmIp]",
+                "168.63.129.16"
+            ],
+            "subnets": [
+                {
+                    "name": "[parameters('resourceNames').dmzSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.0.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondaryDmzSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appGateSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.1.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondaryAppGateSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').addsSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.2.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondaryAddsSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appFESubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.3.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondaryAppFESubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').appBESubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.4.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondaryAppBESubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').sqlSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.5.0/24",
+                        "networkSecurityGroup": {
+                            "id": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/networkSecurityGroups', parameters('resourceNames').secondarySqlSubnetNsgName)]"
+                        }
+                    }
+                },
+                {
+                    "name": "[parameters('resourceNames').bastionSubnetName]",
+                    "properties": {
+                        "addressPrefix": "10.2.10.0/24"
+                    }
+                }
+            ]
+        }
+    },
+    "resources": [
+        {
+            "name": "[concat(variables('primarySite').vnetName, '_To_PrimarySite')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "resourceGroup": "[variables('primarySite').resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[variables('templateLink')]", 
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('primarySite').location]"
+                    },
+                    "name": {
+                        "value": "[variables('primarySite').vnetName]"
+                    },
+                    "tags": {
+                        "value": "[variables('primarySite').tags]"
+                    },
+                    "addressPrefixes": {
+                        "value": "[variables('primarySite').addressPrefixes]"
+                    },
+                    "dnsServers": {
+                        "value": "[variables('primarySite').dnsServers]"
+                    },
+                    "subnets": {
+                        "value": "[variables('primarySite').subnets]"
+                    }
+                }
+            }
+        },
+        {
+            "name": "[concat(variables('secondarySite').vnetName, '_To_SecondarySite')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "resourceGroup": "[variables('secondarySite').resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                "uri": "[variables('templateLink')]", 
+                "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('secondarySite').location]"
+                    },
+                    "name": {
+                        "value": "[variables('secondarySite').vnetName]"
+                    },
+                    "tags": {
+                        "value": "[variables('secondarySite').tags]"
+                    },
+                    "addressPrefixes": {
+                        "value": "[variables('secondarySite').addressPrefixes]"
+                    },
+                    "dnsServers": {
+                        "value": "[variables('secondarySite').dnsServers]"
+                    },
+                    "subnets": {
+                        "value": "[variables('secondarySite').subnets]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

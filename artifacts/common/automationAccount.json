@@ -1,0 +1,40 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {}
+        },
+        "sku": {
+            "type": "string",
+            "defaultValue": "Free"
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "[parameters('name')]",
+            "type": "Microsoft.Automation/automationAccounts",
+            "apiVersion": "2021-04-01",
+            "tags": "[parameters('tags')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                "name": "[parameters('sku')]"
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

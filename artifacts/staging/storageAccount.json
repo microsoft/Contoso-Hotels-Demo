@@ -1,0 +1,55 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "skuName": {
+            "type": "string",
+            "defaultValue": "Standard_LRS"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "containers": [
+            {
+                "name": "[parameters('resourceNames').stagingContainerName]"
+            },
+            {
+                "name": "[parameters('resourceNames').privatefilesContainerName]"
+            }            
+        ]
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2021-01-01",
+            "name": "[parameters('resourceNames').stagingStorageAccountName]",
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "[parameters('skuName')]"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "name": "[concat(parameters('resourceNames').stagingStorageAccountName, '/default/', if(empty(variables('containers')), '__blank__', variables('containers')[copyIndex()].name))]",
+            "apiVersion": "2019-06-01",
+            "copy": {
+                "name": "containerLoop",
+                "count": "[length(variables('containers'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('resourceNames').stagingStorageAccountName)]"
+            ],
+            "properties": {
+                "publicAccess": "[if(contains(variables('containers')[copyIndex()], 'publicAccess'), variables('containers')[copyIndex()].publicAccess, 'None')]"
+            }
+        }
+    ],
+    "outputs": {}
+}

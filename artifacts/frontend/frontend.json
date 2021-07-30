@@ -1,0 +1,576 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNames": {
+        "type": "object"
+    },
+    "appGatewayCertData": {
+      "type": "securestring"
+    },
+    "appGatewayCertPassword": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "_artifactsLocation": {
+      "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring"
+    }
+  },
+  "variables": {
+    "sites": [
+      {
+        "location": "[parameters('resourceNames').primaryLocation]",
+        "resourceGroupName": "[parameters('resourceNames').primaryRetailRGName]",
+        "appGatewayName": "[parameters('resourceNames').fePrimaryAppGatewayName]",
+        "appGatewaySubnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').appGateSubnetName)]",
+        "vmssSubnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').appFESubnetName)]",
+        "vmScaleSetName": "[parameters('resourceNames').fePrimaryVMSSName]",
+        "vmssCapacity": 2,
+        "keyVaultResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.KeyVault/vaults', parameters('resourceNames').primaryKeyVaultName)]",
+        "nlbIpAddress": "[parameters('resourceNames').bePrimaryNlbIp]",
+        "appInsightsResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Insights/components', parameters('resourceNames').primaryAppInsightsName)]"
+      },
+      {
+        "location": "[parameters('resourceNames').secondaryLocation]",
+        "resourceGroupName": "[parameters('resourceNames').secondaryRetailRGName]",
+        "appGatewayName": "[parameters('resourceNames').feSecondaryAppGatewayName]",
+        "appGatewaySubnetResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').appGateSubnetName)]",
+        "vmssSubnetResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').appFESubnetName)]",
+        "vmScaleSetName": "[parameters('resourceNames').feSecondaryVMSSName]",
+        "vmssCapacity": 0,
+        "keyVaultResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.KeyVault/vaults', parameters('resourceNames').secondaryKeyVaultName)]",
+        "nlbIpAddress": "[parameters('resourceNames').beSecondaryNlbIp]",
+        "appInsightsResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Insights/components', parameters('resourceNames').secondaryAppInsightsName)]"
+      }
+    ]
+  },
+  "resources": [
+      	{
+			"name": "[concat('Deploy_FrontEnd_to_', variables('sites')[copyIndex()].resourceGroupName)]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "siteLoop",
+				"count": "[length(variables('sites'))]"
+			},
+			"resourceGroup": "[variables('sites')[copyIndex()].resourceGroupName]",
+			"properties": {
+					"mode": "Incremental",
+					"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('sites')[copyIndex()].location]"
+					},
+          "appGatewayCertData": {
+						"value": "[parameters('appGatewayCertData')]"
+          },
+          "appGatewayCertPassword": {
+						"value": "[parameters('appGatewayCertPassword')]"
+          },
+					"adminUsername": {
+						"value": "[parameters('adminUsername')]"
+					},
+					"adminPassword": {
+						"value": "[parameters('adminPassword')]"
+					},
+          "appGatewayName": {
+						"value": "[variables('sites')[copyIndex()].appGatewayName]"
+					},
+          "appGatewaySubnetResourceId": {
+						"value": "[variables('sites')[copyIndex()].appGatewaySubnetResourceId]"
+					},
+          "vmssSubnetResourceId": {
+						"value": "[variables('sites')[copyIndex()].vmssSubnetResourceId]"
+					},
+          "vmScaleSetName": {
+						"value": "[variables('sites')[copyIndex()].vmScaleSetName]"
+					},
+          "vmssCapacity": {
+						"value": "[variables('sites')[copyIndex()].vmssCapacity]"
+					},
+          "keyVaultResourceId": {
+						"value": "[variables('sites')[copyIndex()].keyVaultResourceId]"
+					},
+          "appInsightsResourceId": {
+						"value": "[variables('sites')[copyIndex()].appInsightsResourceId]"
+					},
+          "stagingStorageAccountResourceId": {
+            "value": "[resourceId(parameters('resourceNames').stagingRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').stagingStorageAccountName)]"
+          },
+          "nlbIpAddress": {
+						"value": "[variables('sites')[copyIndex()].nlbIpAddress]"
+					},
+          "appGatewayDomainNameLabel": {
+            "value": "[parameters('resourceNames').feAppGatewayDomainNameLabel]"
+          },
+          "computerNamePrefix": {
+            "value": "[parameters('resourceNames').feComputerNamePrefix]"
+          },
+          "SiteName": {
+            "value": "[parameters('resourceNames').frontendAppSiteName]"
+          },
+          "SH360FilesContainerName": {
+            "value": "[parameters('resourceNames').stagingContainerName]"
+          },
+					"_artifactsLocation": {
+						"value": "[parameters('_artifactsLocation')]"
+					},
+					"_artifactsLocationSasToken": {
+						"value": "[parameters('_artifactsLocationSasToken')]"
+					}
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+            "appGatewayCertData": {
+							"type": "securestring"
+            },
+            "appGatewayCertPassword": {
+							"type": "securestring"
+            },
+						"adminUsername": {
+							"type": "string"
+						},
+						"adminPassword": {
+							"type": "securestring"
+						},
+            "appGatewayName": {
+							"type": "string"
+            },
+            "appGatewaySubnetResourceId": {
+							"type": "string"
+            },
+            "vmssSubnetResourceId": {
+							"type": "string"
+            },
+            "appInsightsResourceId": {
+							"type": "string"
+            },
+            "stagingStorageAccountResourceId": {
+							"type": "string"
+            },
+            "vmScaleSetName": {
+							"type": "string"
+            },
+            "vmssCapacity": {
+							"type": "int"
+            },
+            "keyVaultResourceId": {
+							"type": "string"
+            },
+            "nlbIpAddress": {
+							"type": "string"
+            },
+            "appGatewayDomainNameLabel": {
+							"type": "string"
+            },
+            "computerNamePrefix": {
+							"type": "string"
+            },
+            "SiteName": {
+							"type": "string"
+            },
+            "SH360FilesContainerName": {
+							"type": "string"
+            },
+						"_artifactsLocation": {
+							"type": "string"
+						},
+						"_artifactsLocationSasToken": {
+							"type": "securestring"
+						}
+					},
+					"variables": {
+            "autoscaleConfig": "autoscaleConfig",
+            "appGatewayPublicIpName": "[concat(parameters('appGatewayName'), '-pip')]",
+            "nicName": "[concat(parameters('vmScaleSetName'), '-nic')]",
+            "ipConfigName": "[concat(parameters('vmScaleSetName'), '-ipconfig')]",
+            "configReplacements": [
+              {
+                "configXPath": "/configuration/system.serviceModel/client/endpoint/@address",
+                "configValue": "[concat('http://', parameters('nlbIpAddress'), '/Service.svc')]"
+              }
+            ]
+					},
+					"resources": [
+            {
+              "name": "[variables('appGatewayPublicIpName')]",
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2020-11-01",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings": {
+                  "domainNameLabel": "[parameters('appGatewayDomainNameLabel')]"
+                },
+                "idleTimeoutInMinutes": 4
+              }
+            },
+            {
+              "name": "[parameters('appGatewayName')]",
+              "type": "Microsoft.Network/applicationGateways",
+              "apiVersion": "2020-11-01",
+              "location": "[parameters('location')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('appGatewayPublicIpName'))]"
+              ],
+              "properties": {
+                "sku": {
+                  "name": "Standard_v2",
+                  "tier": "Standard_v2",
+                  "capacity": 2
+                },
+                "sslCertificates": [
+                  {
+                    "name": "appGatewaySslCert",
+                    "properties": {
+                      "data": "[parameters('appGatewayCertData')]",
+                      "password": "[parameters('appGatewayCertPassword')]"
+                    }
+                  }
+                ],
+                "gatewayIPConfigurations": [
+                  {
+                    "name": "appGatewayIpConfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('appGatewaySubnetResourceId')]"
+                      }
+                    }
+                  }
+                ],
+                "frontendIPConfigurations": [
+                  {
+                    "name": "appGatewayFrontendIP",
+                    "properties": {
+                      "PublicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('appGatewayPublicIpName'))]"
+                      }
+                    }
+                  }
+                ],
+                "frontendPorts": [
+                  {
+                    "name": "appGatewayFrontendHttpPort",
+                    "properties": {
+                      "Port": 80
+                    }
+                  },
+                  {
+                    "name": "appGatewayFrontendHttpsPort",
+                    "properties": {
+                      "Port": 443
+                    }
+                  }
+                ],
+                "backendAddressPools": [
+                  {
+                    "name": "appGatewayBackendPool"
+                  }
+                ],
+                "backendHttpSettingsCollection": [
+                  {
+                    "name": "appGatewayBackendHttpSettings",
+                    "properties": {
+                      "Port": 80,
+                      "Protocol": "Http",
+                      "CookieBasedAffinity": "Disabled"
+                    }
+                  }
+                ],
+                "httpListeners": [
+                  {
+                    "name": "appGatewayHttpListener",
+                    "properties": {
+                      "FrontendIPConfiguration": {
+                        "Id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('appGatewayName'), 'appGatewayFrontendIP')]"
+                      },
+                      "FrontendPort": {
+                        "Id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('appGatewayName'), 'appGatewayFrontendHttpPort')]"
+                      },
+                      "Protocol": "Http"
+                    }
+                  },
+                  {
+                    "name": "appGatewayHttpsListener",
+                    "properties": {
+                      "FrontendIPConfiguration": {
+                        "Id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('appGatewayName'), 'appGatewayFrontendIP')]"
+                      },
+                      "FrontendPort": {
+                        "Id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('appGatewayName'), 'appGatewayFrontendHttpsPort')]"
+                      },
+                      "Protocol": "Https",
+                      "SslCertificate": {
+                        "Id": "[resourceId('Microsoft.Network/applicationGateways/sslCertificates', parameters('appGatewayName'), 'appGatewaySslCert')]"
+                      }
+                    }
+                  }
+                ],
+                "redirectConfigurations": [
+                  {
+                    "Name": "redirectConfigHttpToHttps",
+                    "properties": {
+                      "redirectType": "Permanent",
+                      "targetListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('appGatewayName'), 'appGatewayHttpsListener')]"
+                      }
+                    }
+                  }
+                ],
+                "requestRoutingRules": [
+                  {
+                    "Name": "HttpToHttpsRule",
+                    "properties": {
+                      "RuleType": "Basic",
+                      "httpListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('appGatewayName'), 'appGatewayHttpListener')]"
+                      },
+                      "redirectConfiguration": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/redirectConfigurations', parameters('appGatewayName'), 'redirectConfigHttpToHttps')]"
+                      }
+                    }
+                  },
+                  {
+                    "Name": "HttpsToBackedRule",
+                    "properties": {
+                      "RuleType": "Basic",
+                      "httpListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('appGatewayName'), 'appGatewayHttpsListener')]"
+                      },
+                      "backendAddressPool": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('appGatewayName'), 'appGatewayBackendPool')]"
+                      },
+                      "backendHttpSettings": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', parameters('appGatewayName'), 'appGatewayBackendHttpSettings')]"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "[parameters('vmScaleSetName')]",
+              "type": "Microsoft.Compute/virtualMachineScaleSets",
+              "location": "[parameters('location')]",
+              "apiVersion": "2020-06-01",
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/applicationGateways', parameters('appGatewayName'))]"
+              ],
+              "sku": {
+                "name": "Standard_D4s_v3",
+                "tier": "Standard",
+                "capacity": "[parameters('vmssCapacity')]"
+              },
+              "properties": {
+                "overprovision": true,
+                "singlePlacementGroup": false,
+                "upgradePolicy": {
+                  "mode": "Automatic"
+                },
+                "virtualMachineProfile": {
+                  "storageProfile": {
+                    "osDisk": {
+                      "caching": "ReadWrite",
+                      "createOption": "FromImage",
+                      "managedDisk": {
+                        "storageAccountType": "Premium_LRS"
+                      }
+                    },
+                    "imageReference": {
+                      "publisher": "MicrosoftWindowsServer",
+                      "offer": "WindowsServer",
+                      "sku": "2016-Datacenter",
+                      "version": "latest"
+                    }
+                  },
+                  "licenseType": "Windows_Server",
+                  "osProfile": {
+                    "computerNamePrefix": "[parameters('computerNamePrefix')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]"
+                  },
+                  "networkProfile": {
+                    "networkInterfaceConfigurations": [
+                      {
+                        "name": "[variables('nicName')]",
+                        "properties": {
+                          "primary": true,
+                          "ipConfigurations": [
+                            {
+                              "name": "[variables('ipConfigName')]",
+                              "properties": {
+                                "subnet": {
+                                  "id": "[parameters('vmssSubnetResourceId')]"
+                                },
+                                "ApplicationGatewayBackendAddressPools": [
+                                  {
+                                    "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('appGatewayName'), 'appGatewayBackendPool')]"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+              "name": "[concat(parameters('vmScaleSetName'), '/ConfigureIIS')]",
+              "apiVersion": "2020-06-01",
+              "location": "[parameters('location')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmScaleSetName'))]"
+              ],
+              "properties": {
+                "publisher": "Microsoft.Powershell",
+                "type": "DSC",
+                "typeHandlerVersion": "2.71",
+                "autoUpgradeMinorVersion": true,
+                "forceUpdateTag": "v1",
+                "settings": {
+                  "modulesUrl": "[concat(parameters('_artifactsLocation'), 'dsc/ConfigureIIS.zip', parameters('_artifactsLocationSasToken'))]",
+                  "configurationFunction": "ConfigureIIS.ps1\\SH360Website",
+                  "properties": {
+                    "AppPoolCredential": {
+                      "userName": "[parameters('adminUsername')]",
+                      "password": "PrivateSettingsRef:adminPassword"
+                    },
+                    "stagingSAKey": {
+                        "userName": "PLACEHOLDER-DO-NOT-USE",
+                        "password": "PrivateSettingsRef:stagingSAKey"
+                    },
+                    "SH360FilesSAName": "[last(split(parameters('stagingStorageAccountResourceId'), '/'))]",
+                    "SiteName": "[parameters('SiteName')]",
+                    "SH360FilesContainerName": "[parameters('SH360FilesContainerName')]",
+                    "ConfigReplacements": "[variables('configReplacements')]",
+                    "AIKey": "[reference(parameters('appInsightsResourceId'), '2015-05-01').InstrumentationKey]"
+                  }
+                },
+                "protectedSettings": {
+                  "items": {
+                    "adminPassword": "[parameters('adminPassword')]",
+                    "stagingSAKey": "[listKeys(parameters('stagingStorageAccountResourceId'), '2019-06-01').keys[0].value]"
+                  }
+                }
+              }
+            },
+            {
+              "name": "[concat(parameters('vmScaleSetName'), '/AzureDiskEncryption')]",
+              "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+              "apiVersion": "2020-12-01",
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachineScaleSets/extensions', parameters('vmScaleSetName'), 'ConfigureIIS')]"
+              ],
+              "location": "[parameters('location')]",
+              "properties": {
+                "publisher": "Microsoft.Azure.Security",
+                "type": "AzureDiskEncryption",
+                "typeHandlerVersion": "2.2",
+                "autoUpgradeMinorVersion": true,
+                "forceUpdateTag": "1.0",
+                "settings": {
+                  "EncryptionOperation": "EnableEncryption",
+                  "KeyVaultURL": "[reference(parameters('keyVaultResourceId'),'2016-10-01').vaultUri]",
+                  "KeyVaultResourceId": "[parameters('keyVaultResourceID')]",
+                  "KekVaultResourceId": "[parameters('keyVaultResourceID')]",
+                  "KeyEncryptionAlgorithm": "RSA-OAEP",
+                  "VolumeType": "All"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/autoscaleSettings",
+              "name": "[variables('autoscaleConfig')]",
+              "apiVersion": "2015-04-01",
+              "location": "[parameters('location')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmScaleSetName'))]",
+                "[resourceId('Microsoft.Compute/virtualMachineScaleSets/extensions', parameters('vmScaleSetName'), 'ConfigureIIS')]",
+                "[resourceId('Microsoft.Compute/virtualMachineScaleSets/extensions', parameters('vmScaleSetName'), 'AzureDiskEncryption')]"
+              ],
+              "properties": {
+                "name": "[variables('autoscaleConfig')]",
+                "targetResourceUri": "[resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmScaleSetName'))]",
+                "enabled": true,
+                "profiles": [
+                  {
+                    "name": "Profile1",
+                    "capacity": {
+                      "minimum": "[string(parameters('vmssCapacity'))]",
+                      "maximum": "10",
+                      "default": "[string(parameters('vmssCapacity'))]"
+                    },
+                    "rules": [
+                      {
+                        "metricTrigger": {
+                          "metricName": "Percentage CPU",
+                          "metricResourceUri": "[resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmScaleSetName'))]",
+                          "timeGrain": "PT1M",
+                          "statistic": "Average",
+                          "timeWindow": "PT10M",
+                          "timeAggregation": "Average",
+                          "operator": "GreaterThan",
+                          "threshold": 70
+                        },
+                        "scaleAction": {
+                          "direction": "Increase",
+                          "type": "ChangeCount",
+                          "value": "1",
+                          "cooldown": "PT5M"
+                        }
+                      },
+                      {
+                        "metricTrigger": {
+                          "metricName": "Percentage CPU",
+                          "metricResourceUri": "[resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmScaleSetName'))]",
+                          "timeGrain": "PT1M",
+                          "statistic": "Average",
+                          "timeWindow": "PT5M",
+                          "timeAggregation": "Average",
+                          "operator": "LessThan",
+                          "threshold": 30
+                        },
+                        "scaleAction": {
+                          "direction": "Decrease",
+                          "type": "ChangeCount",
+                          "value": "1",
+                          "cooldown": "PT5M"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

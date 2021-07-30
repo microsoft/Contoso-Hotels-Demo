@@ -1,0 +1,21 @@
+﻿# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/deploy_items/.vs
+/deploy_items/dependentResources/deploy_sql_cluster.parameters.json
+/.vs
+/deploy_items/ClassicAppLoad/.vs/ClassicAppLoad/v15
+/deploy_items/SmartHotel.Registration.Web/.vs
+/deploy_items/SmartHotel.Registration.Web/packages
+deploy_items/dependentResources/deploy_file_server.parameters.json
+deploy_items/ClassicAppLoad/ClassicAppLoad/obj
+artifacts/SmartHotel.Registration.Web/obj/
+artifacts/SmartHotel.Registration.Web/obj/Debug
+artifacts/SmartHotel.Registration.Wcf/obj/
+/applications/SmartHotel.Registration.Web/obj
+/applications/ClassicAppLoad/.vs/ClassicAppLoad
+/applications/SmartHotel.Registration.Web/.vs/SmartHotel.Registration.Web/v16/.suo

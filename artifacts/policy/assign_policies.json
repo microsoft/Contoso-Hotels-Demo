@@ -1,0 +1,225 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "prefix": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "location": "[parameters('resourceNames').primaryLocation]",
+        "vmWareSolutionRGResourceId": "[concat(subscription().id, '/resourceGroups/', parameters('resourceNames').vmWareSolutionRGName)]",
+        "liftNShiftRGResourceId": "[concat(subscription().id, '/resourceGroups/', parameters('resourceNames').liftNShiftRGName)]",
+        "MigrateSQLRGResourceId": "[concat(subscription().id, '/resourceGroups/', parameters('resourceNames').MigrateSQLRGName)]",
+        "jboxVm01ResourceId": "[concat(subscription().id, '/resourceGroups/', parameters('resourceNames').primaryOpsRGName, '/providers/Microsoft.Compute/virtualMachines/', parameters('resourceNames').jbox01VmName)]",
+        "workspaceResourceId": "[concat(subscription().id, '/resourceGroups/', parameters('resourceNames').primaryOpsRGName, '/providers/Microsoft.OperationalInsights/workspaces/', parameters('resourceNames').workspaceName)]",
+
+        "assignments": [
+            {
+                "displayName": "Allow only US locations",
+                "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c",
+                "notScopes": [
+                    "[variables('vmWareSolutionRGResourceId')]"
+                ],
+                "parameters": {
+                    "listOfAllowedLocations": {
+                        "value": [ "CentralUS", "EastUS", "EastUS2", "NorthCentralUS", "SouthCentralUS", "WestUS", "WestUS2", "WestCentralUS" ]
+                    }
+                }
+            },
+            {
+                "displayName": "Allow only specific virtual machine size SKUs",
+                "policyDefinitionId": "/providers/Microsoft.Authorization/policyDefinitions/cccc23c7-8427-4f53-ad12-b6a63eb452b3",
+                "notScopes": [ 
+                    "[variables('vmWareSolutionRGResourceId')]",
+                    "[variables('liftNShiftRGResourceId')]"
+                ],
+                "parameters": {
+                    "listOfAllowedSKUs": {
+                        "value": [ "standard_d2s_v3", "standard_d4s_v3", "standard_b1ms", "standard_b4ms", "standard_ds3_v2" ]
+                    }
+                }
+            },
+            {
+                "displayName": "Enable Azure Monitor for VMs",
+                "policyDefinitionId": "/providers/Microsoft.Authorization/policySetDefinitions/55f3eceb-5573-4f18-9695-226972c6d74a",
+                "notScopes": [
+                    "[variables('liftNShiftRGResourceId')]",
+                    "[variables('jboxVm01ResourceId')]"
+                ],
+                "parameters": {
+                    "logAnalytics_1": {
+                        "value": "[variables('workspaceResourceId')]"
+                    }
+                },
+                "identityType": "SystemAssigned",
+                "roleDefinitionIds": [
+                    "92aaf0da-9dab-42b6-94a3-d43ce8d16293"  //Log Analytics Contributor
+                ]
+            },
+            {
+                "displayName": "Enable Azure Monitor for VMSS",
+                "policyDefinitionId": "/providers/Microsoft.Authorization/policySetDefinitions/75714362-cae7-409e-9b99-a8e5075b7fad",
+                "notScopes": [
+                    "[variables('liftNShiftRGResourceId')]"
+                ],
+                "parameters": {
+                    "logAnalytics_1": {
+                        "value": "[variables('workspaceResourceId')]"
+                    }
+                },
+                "identityType": "SystemAssigned",
+                "roleDefinitionIds": [
+                    "92aaf0da-9dab-42b6-94a3-d43ce8d16293", //Log Analytics Contributor
+                    "9980e02c-c2be-4d73-94e8-173b1dc7cf3c"  //Virtual Machine Contributor
+                ]
+            },
+            {
+                "displayName": "Enable application change analysis",
+                "policyDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/policyDefinitions', '792a9d3b-4edd-5b68-ad32-f19563c583b4')]",
+                "parameters": {
+                    "tagName": { "value": "hidden-related:diagnostics/changeAnalysisScanEnabled" },
+                    "tagValue": { "value": "true" },
+                    "resourceTypes": { 
+                        "value": [ "Microsoft.Web/sites" ]
+                    },
+                    "resourceKinds": {
+                        "value": [ "app" ]
+                    }
+                },
+                "identityType": "SystemAssigned",
+                "roleDefinitionIds": [
+                    "4a9ae827-6dc8-4573-8ac7-8239d42aa03f"  //Tag Contributor
+                ]
+            },
+            {
+                "displayName": "Apply CanNotDelete lock on Contoso Hotels resource groups",
+                "policyDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/policyDefinitions', 'db1ee89a-e89b-5092-a475-ac287b834ce2')]",
+                "notScopes": [
+                    "[variables('liftNShiftRGResourceId')]",
+                    "[variables('MigrateSQLRGResourceId')]" 
+                ],
+                "parameters": {
+                    "resourceGroupPrefix": { 
+                        "value": "[concat(parameters('prefix'), '-')]"
+                    }
+                },
+                "identityType": "SystemAssigned",
+                "roleDefinitionIds": [
+                    "00c29273-979b-4161-815c-10b084fb9324", //Backup Operator
+                    "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"  //User Access Administrator
+                ]
+            },
+            {
+                "displayName": "Enable Azure VM Insights Health for VMs",
+                "policyDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/policySetDefinitions', '6ec48d46-433c-4278-9929-4bad7c942163')]",
+                "notScopes": [
+                    "[variables('liftNShiftRGResourceId')]",
+                    "[variables('jboxVm01ResourceId')]"
+                ],
+                "parameters": {
+                    "logAnalytics": {
+                        "value": "[variables('workspaceResourceId')]"
+                    }
+                },
+                "identityType": "SystemAssigned",
+                "roleDefinitionIds": [
+                    "b24988ac-6180-42a0-ab88-20f7382dd24c"  //Contributor
+                ]
+            }
+        ]
+    },
+    "resources": [
+        {
+			"type": "Microsoft.Authorization/policyAssignments",
+            "apiVersion": "2019-09-01",
+			"name": "[guid(subscription().id, variables('assignments')[copyIndex()].displayName)]",
+			"location": "[if(contains(variables('assignments')[copyIndex()], 'location'), variables('assignments')[copyIndex()].location, variables('location'))]",
+            "copy": {
+                "name": "assignmentLoop",
+                "count": "[length(variables('assignments'))]"
+            },
+			"identity": {
+                "type": "[if(contains(variables('assignments')[copyIndex()], 'identityType'), variables('assignments')[copyIndex()].identityType, 'None')]"
+            },
+			"properties": {
+				"displayName": "[variables('assignments')[copyIndex()].displayName]",
+				"scope": "[subscription().id]",
+				"notScopes": "[if(contains(variables('assignments')[copyIndex()], 'notScopes'), variables('assignments')[copyIndex()].notScopes, json('[]'))]",
+				"policyDefinitionId": "[variables('assignments')[copyIndex()].policyDefinitionId]",
+				"parameters": "[if(contains(variables('assignments')[copyIndex()], 'parameters'), variables('assignments')[copyIndex()].parameters, json('{}'))]"
+			}
+		},
+        {
+            "condition": "[contains(variables('assignments')[copyIndex()], 'roleDefinitionIds')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-06-01",
+            "name": "[concat('Deploy_RoleAssignments_', guid(variables('assignments')[copyIndex()].displayName))]",
+            "location": "[variables('location')]",
+            "copy": {
+                "name": "roleAssignmentLoop",
+                "count": "[length(variables('assignments'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Authorization/policyAssignments', guid(subscription().id, variables('assignments')[copyIndex()].displayName))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "parameters": {
+                    "principalId": {
+                        "value": "[reference(resourceId('Microsoft.Authorization/policyAssignments', guid(subscription().id, variables('assignments')[copyIndex()].displayName)), '2019-09-01', 'Full').identity.principalId]"
+                    },
+                    "description": {
+                        "value": "[variables('assignments')[copyIndex()].displayName]"
+                    },
+                    "roleDefinitionIds": {
+                        "value": "[variables('assignments')[copyIndex()].roleDefinitionIds]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "principalId": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "roleDefinitionIds": {
+                            "type": "array"
+                        }
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Authorization/roleAssignments",
+                            "apiVersion": "2020-04-01-preview",
+                            "name": "[guid(subscription().id, parameters('principalId'), parameters('roleDefinitionIds')[copyIndex()])]",
+                            "copy": {
+                                "name": "roleAssignmentLoop",
+                                "count": "[length(parameters('roleDefinitionIds'))]"
+                            },
+                            "properties": {
+                                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', parameters('roleDefinitionIds')[copyIndex()])]",
+                                "principalId": "[parameters('principalId')]",
+                                "principalType": "ServicePrincipal",
+                                "canDelegate": false,
+                                "scope": "[subscription().id]",
+                                "description": "[parameters('description')]"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,96 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "resourceNames": {
+         "type": "object"
+      },
+      "_artifactsLocation": {
+         "type": "string"
+      },
+      "_artifactsLocationSasToken": {
+         "type": "securestring"
+      }
+   },
+   "variables": {
+      "templateLink": "[concat(parameters('_artifactsLocation'),'common/nsg.json', parameters('_artifactsLocationSasToken'))]",
+      "sites": [
+         {
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+            "name": "[parameters('resourceNames').primaryAppGateSubnetNsgName]",
+            "securityRules": "[variables('securityRules')]"
+         },
+         {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+            "name": "[parameters('resourceNames').secondaryAppGateSubnetNsgName]",
+            "securityRules": "[variables('securityRules')]"
+         }
+      ],
+      "securityRules": [
+         {
+            "name": "GatewayManager",
+            "properties": {
+                  "protocol": "*",
+                  "sourcePortRange": "*",
+                  "destinationPortRange": "65200-65535",
+                  "sourceAddressPrefix": "GatewayManager",
+                  "destinationAddressPrefix": "*",
+                  "access": "Allow",
+                  "priority": 100,
+                  "direction": "Inbound"
+            }
+         },
+         {
+            "name": "WebTraffic",
+            "properties": {
+               "protocol": "TCP",
+               "sourcePortRange": "*",
+               "sourceAddressPrefix": "*",
+               "destinationAddressPrefix": "*",
+               "access": "Allow",
+               "priority": 110,
+               "direction": "Inbound",
+               "destinationPortRanges": [
+                  "80",
+                  "443"
+               ]
+            }
+         }
+      ]
+   },
+   "resources": [
+      {
+         "name": "[concat('Deploy_', variables('sites')[copyIndex()].name, '_To_', variables('sites')[copyIndex()].resourceGroupName)]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "copy": {
+            "name": "siteLoop",
+            "count": "[length(variables('sites'))]"
+         },
+         "resourceGroup": "[variables('sites')[copyIndex()].resourceGroupName]",
+         "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+               "uri": "[variables('templateLink')]", 
+               "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('sites')[copyIndex()].location]"
+               },
+               "name": {
+                  "value": "[variables('sites')[copyIndex()].name]"
+               },
+               "securityRules": {
+                  "value": "[variables('sites')[copyIndex()].securityRules]"
+               }
+            }
+         }
+      }
+   ]
+}

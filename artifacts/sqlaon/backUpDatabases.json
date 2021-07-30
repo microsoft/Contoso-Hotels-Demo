@@ -1,0 +1,201 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+		"resourceNames": {
+			"type": "object"
+		}
+    },
+    "variables": {
+        "backupPolicyName": "HourlyLogBackup",
+        "databases": [
+            "master",
+            "msdb"
+        ],
+        "sites": [
+			{
+				"recoveryVaultName": "[parameters('resourceNames').primaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').primaryOpsRGName]",
+                "virtualMachines": [
+                    {
+                        "vmName": "[parameters('resourceNames').sql00VmName]",
+                        "vmRGName": "[parameters('resourceNames').primaryRetailRGName]"
+                    },
+                    {
+                        "vmName": "[parameters('resourceNames').sql01VmName]",
+                        "vmRGName": "[parameters('resourceNames').primaryRetailRGName]"
+                    }
+                ]
+            },
+			{
+				"recoveryVaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').secondaryOpsRGName]",
+                "virtualMachines": [
+                    {
+                        "vmName": "[parameters('resourceNames').sql02VmName]",
+                        "vmRGName": "[parameters('resourceNames').secondaryRetailRGName]"
+                    }
+                ]
+            }
+        ]
+    },
+    "resources": [
+      	{
+			"name": "[concat(variables('sites')[copyIndex()].recoveryVaultRGName, '_BackupSystemDatabases')]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "siteLoop",
+				"count": "[length(variables('sites'))]"
+			},
+			"resourceGroup": "[variables('sites')[copyIndex()].recoveryVaultRGName]",
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+                    "backupPolicyName": {
+                        "value": "[variables('backupPolicyName')]"
+                    },
+                    "databases": {
+                        "value": "[variables('databases')]"
+                    },
+                    "recoveryVaultName": {
+                        "value": "[variables('sites')[copyIndex()].recoveryVaultName]"
+                    },
+                    "virtualMachines": {
+                        "value": "[variables('sites')[copyIndex()].virtualMachines]"
+                    }
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+                        "backupPolicyName": {
+                            "type": "string"
+                        },
+                        "databases": {
+                            "type": "array"
+                        },
+						"recoveryVaultName": {
+							"type": "string"
+						},
+						"virtualMachines": {
+							"type": "array"
+						}
+					},
+					"resources": [
+                        {
+                            "name": "[concat(parameters('virtualMachines')[copyIndex()].vmName, '_BackupSystemDatabases')]",
+                            "type": "Microsoft.Resources/deployments",
+                            "apiVersion": "2020-10-01",
+                            "copy": {
+                                "name": "vmLoop",
+                                "count": "[length(parameters('virtualMachines'))]",
+                                "mode": "Serial"
+                            },
+                            "properties": {
+                                "mode": "Incremental",
+                                "expressionEvaluationOptions": {
+                                    "scope": "inner"
+                                },
+                                "parameters": {
+                                    "backupPolicyName": {
+                                        "value": "[parameters('backupPolicyName')]"
+                                    },
+                                    "databases": {
+                                        "value": "[parameters('databases')]"
+                                    },
+                                    "recoveryVaultName": {
+                                        "value": "[parameters('recoveryVaultName')]"
+                                    },
+                                    "vmName": {
+                                        "value": "[parameters('virtualMachines')[copyIndex()].vmName]"
+                                    },
+                                    "vmRGName": {
+                                        "value": "[parameters('virtualMachines')[copyIndex()].vmRGName]"
+                                    }
+                                },
+                                "template": {
+                                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                                    "contentVersion": "1.0.0.0",
+                                    "parameters": {
+                                        "backupPolicyName": {
+                                            "type": "string"
+                                        },
+                                        "databases": {
+                                            "type": "array"
+                                        },
+                                        "recoveryVaultName": {
+                                            "type": "string"
+                                        },
+                                        "vmName": {
+                                            "type": "string"
+                                        },
+                                        "vmRGName": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "variables": {
+                                        "backupPolicyName": "[parameters('backupPolicyName')]",
+                                        "databases": "[parameters('databases')]",
+                                        "recoveryVaultName": "[parameters('recoveryVaultName')]",
+                                        "vmName": "[parameters('vmName')]",
+                                        "vmRGName": "[parameters('vmRGName')]",
+
+                                        "operationType": "Reregister",
+                                        "backupFabric": "Azure",
+                                        "containerType": "VMAppContainer",
+                                        "backupManagementType": "AzureWorkload",
+                                        "workloadType": "SQLDataBase",
+                                        "protectedItemType": "AzureVmWorkloadSQLDatabaseProtectedItem",
+                                        "protectionContainers": "[concat('vmappcontainer;compute;', variables('vmRGName'), ';', variables('vmName'))]",
+                                        "protectedItems": "sqldatabase;mssqlserver;"
+                                    },
+                                    "resources": [
+                                        {
+                                            "name": "[concat(variables('recoveryVaultName'), '/', variables('backupFabric'), '/', variables('containerType'), ';compute;', variables('vmRGName'), ';', variables('vmName'))]",
+                                            "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers",
+                                            "apiVersion": "2021-02-01",
+                                            "properties": {
+                                                "containerType": "[variables('containerType')]",
+                                                "backupManagementType": "[variables('backupManagementType')]",
+                                                "workloadType": "[variables('workloadType')]",
+                                                "friendlyName": "[variables('vmName')]",
+                                                "operationType": "[variables('operationType')]",
+                                                "sourceResourceId": "[resourceId(variables('vmRGName'),'Microsoft.Compute/virtualMachines', variables('vmName'))]"
+                                            }
+                                        },
+                                        {
+                                            "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+                                            "apiVersion": "2021-02-01",
+                                            "name": "[concat(variables('recoveryVaultName'), '/', variables('backupFabric'), '/', variables('protectionContainers'), '/', variables('protectedItems'), variables('databases')[copyIndex()])]",
+                                            "copy": {
+                                                "name": "databaseLoop",
+                                                "count": "[length(variables('databases'))]"
+                                            },
+                                            "dependsOn": [
+                                                "[resourceId('Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers', variables('recoveryVaultName'), variables('backupFabric'), concat(variables('containerType'), ';compute;', variables('vmRGName'), ';', variables('vmName')))]"
+                                            ],
+                                            "properties":{
+                                                "backupManagementType": "[variables('backupManagementType')]",
+                                                "workloadType": "[variables('workloadType')]",
+                                                "protectedItemType": "[variables('protectedItemType')]",
+                                                "friendlyName": "[variables('databases')[copyIndex()]]",
+                                                "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies', variables('recoveryVaultName'), variables('backupPolicyName'))]"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

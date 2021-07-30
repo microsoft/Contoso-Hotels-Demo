@@ -1,0 +1,98 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string"
+        },
+        "resourceNames": {
+            "type": "object"
+        },
+        "sku": {
+            "type": "string",
+            "defaultValue": "PerGB2018"
+        },
+        "retentionInDays": {
+            "type": "int",
+            "defaultValue": 90
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {}
+        },
+        "solutionTypes": {
+            "type": "array",
+            "defaultValue": [
+                "ADAssessment",
+                "AzureActivity",
+                "ChangeTracking",
+                "ContainerInsights",
+                "NetworkMonitoring",
+//                "Security",
+                "SecurityCenterFree",
+                "SecurityInsights",
+                "ServiceMap",
+                "Updates",
+                "VMInsights"
+            ]
+        }
+
+    },
+    "variables": {
+        "workspaceName": "[parameters('resourceNames').workspaceName]"
+    },
+    "resources": [
+       {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "name": "[variables('workspaceName')]",
+            "apiVersion": "2020-08-01",
+            "tags": "[parameters('tags')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "Name": "[parameters('sku')]"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]"
+            }
+        },
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/linkedServices",
+            "apiVersion": "2020-08-01",
+            "name": "[concat(parameters('resourceNames').workspaceName, '/' , 'Automation')]",
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "resourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Automation/automationAccounts', parameters('resourceNames').primaryAutomationAccountName)]"
+            }
+        },
+        {
+            "type": "Microsoft.OperationsManagement/solutions",
+            "name": "[concat(parameters('solutionTypes')[copyIndex()], '(', variables('workspaceName'), ')')]",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            ],
+            "copy": {
+                "name": "solutionLoop",
+                "count": "[length(parameters('solutionTypes'))]"
+            },
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat(parameters('solutionTypes')[copyIndex()], '(', variables('workspaceName'), ')')]",
+                "product": "[concat('OMSGallery/', parameters('solutionTypes')[copyIndex()])]",
+                "promotionCode": "",
+                "publisher": "Microsoft"
+            }
+        }
+
+    ],
+    "outputs": {}
+ }

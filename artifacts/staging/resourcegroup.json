@@ -1,0 +1,33 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.1",
+    "parameters": {
+        "resourceGroupLocation": {
+            "type": "string"
+        },
+        "resourceGroupName": {
+            "type": "string",
+            "defaultValue": "CR-RetailRG-Play"
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {}
+        }
+    },
+    "variables": {
+    },
+    "resources": [
+       {
+          "type": "Microsoft.Resources/resourceGroups",
+          "name": "[parameters('resourceGroupName')]",
+          "apiVersion": "2020-06-01",
+          "location": "[parameters('resourceGroupLocation')]",
+          "tags": "[parameters('tags')]",
+          "properties": {}
+       }
+    ],
+    "outputs": {}
+}

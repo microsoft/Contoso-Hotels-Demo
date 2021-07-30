@@ -1,0 +1,48 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "location": {
+         "type": "string"
+      },
+      "name": {
+         "type": "string"
+      },
+      "tags": {
+         "type": "object",
+         "defaultValue": {}
+      },
+      "addressPrefixes": {
+         "type": "array"
+      },
+      "dnsServers": {
+         "type": "array",
+         "defaultValue": []
+      },
+      "subnets": {
+         "type": "array"
+      }
+   },
+   "variables": {},
+   "resources": [
+      {
+         "name": "[parameters('name')]",
+         "type": "Microsoft.Network/virtualNetworks",
+         "apiVersion": "2020-07-01",
+         "tags": "[parameters('tags')]",
+         "location": "[parameters('location')]",
+         "properties": {
+            "addressSpace": {
+               "addressPrefixes": "[parameters('addressPrefixes')]"
+            },
+            "dhcpOptions":{  
+               "dnsServers":"[parameters('dnsServers')]"
+            },
+            "subnets": "[parameters('subnets')]"
+         }
+      }
+   ]
+}

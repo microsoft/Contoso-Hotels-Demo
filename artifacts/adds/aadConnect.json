@@ -1,0 +1,92 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "_artifactsLocation": {
+        "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+        "type": "securestring"
+    }
+  },
+  "variables": {
+    "vmTemplateLink": "[concat(parameters('_artifactsLocation'),'common/vm.json', parameters('_artifactsLocationSasToken'))]",
+    "vmName": "[parameters('resourceNames').aadConnVmName]",
+    "computerName": "[parameters('resourceNames').aadConnComputerName]",
+    "ipAddress": "[parameters('resourceNames').aadConnVmIp]",
+		"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]",
+		"subnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').addsSubnetName)]"
+  },
+  "resources": [
+    {
+      "name": "Deploy_AADConnect_VM",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('vmTemplateLink')]"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('resourceNames').primaryLocation]"
+          },
+          "vmName": {
+            "value": "[variables('vmName')]"
+          },
+          "computerName": {
+            "value": "[variables('computerName')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "vmSize": {
+            "value": "Standard_D2s_v3"
+          },
+          "imagePublisher": {
+            "value": "MicrosoftWindowsServer"
+          },
+          "imageOffer": {
+            "value": "WindowsServer"
+          },
+          "imageSKU": {
+            "value": "2019-Datacenter"
+          },
+          "diagStorageAccountId": {
+            "value": "[variables('diagStorageAccountResourceId')]"
+          },
+          "subnetResourceId": {
+            "value": "[variables('subnetResourceId')]"
+          },
+          "recoveryVaultName": {
+            "value": "[parameters('resourceNames').primaryRecoveryVaultName]"
+          },
+          "recoveryVaultRGName": {
+            "value": "[parameters('resourceNames').primaryOpsRGName]"
+          },
+          "staticPrivateIpAddress": {
+            "value": "[variables('ipAddress')]"
+          },
+          "domainToJoin": {
+            "value": "[parameters('resourceNames').addsDomainName]"
+          }
+        }
+      }
+    }
+  ]
+}

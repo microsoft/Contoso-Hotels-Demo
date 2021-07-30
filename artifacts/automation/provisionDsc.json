@@ -1,0 +1,248 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "tags": {
+            "type": "object"
+        },
+        "adminUsername": {
+            "type": "securestring"
+        },
+        "adminPassword": {
+            "type": "securestring"
+        },
+        "stagingSAKey": {
+            "type": "securestring"
+        },
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "packagesUri": "[concat('https://devopsgallerystorage.blob.', environment().suffixes.storage, '/packages/')]",
+        "credentials": [
+            {
+                "name": "adminCredential",
+                "userName": "[parameters('adminUsername')]",
+                "password": "[parameters('adminPassword')]",
+                "description": "Administrator credentials"
+            },
+            {
+                "name": "domainCredential",
+                "userName": "[concat(parameters('adminUsername'), '@', parameters('resourceNames').addsDomainName)]",
+                "password": "[parameters('adminPassword')]",
+                "description": "ADDS administrator credentials"
+            },
+            {
+                "name": "stagingSACredential",
+                "userName": "[parameters('resourceNames').stagingStorageAccount]",
+                "password": "[parameters('stagingSAKey')]",
+                "description": "Administrator credentials"
+            }
+        ],
+        "modules": [
+            {
+                "name": "cChoco",
+                "uri": "[concat(variables('packagesUri'), 'cchoco.2.5.0.nupkg')]"
+            },
+            {
+                "name": "cAzureStorage",
+                "uri": "[concat(variables('packagesUri'), 'cazurestorage.1.0.0.1.nupkg')]"
+            },
+            {
+                "name": "ActiveDirectoryDsc",
+                "uri": "[concat(variables('packagesUri'), 'activedirectorydsc.4.0.0.nupkg')]"
+            },
+            {
+                "name": "NetworkingDsc",
+                "uri": "[concat(variables('packagesUri'), 'networkingdsc.7.4.0.nupkg')]"
+            },
+            {
+                "name": "xDnsServer",
+                "uri": "[concat(variables('packagesUri'), 'xdnsserver.1.14.0.nupkg')]"
+            },
+            {
+                "name": "xPSDesiredStateConfiguration",
+                "uri": "[concat(variables('packagesUri'), 'xpsdesiredstateconfiguration.8.10.0.nupkg')]"
+            },
+            {
+                "name": "ComputerManagementDsc",
+                "uri": "[concat(variables('packagesUri'), 'computermanagementdsc.7.0.0.nupkg')]"
+            },
+            {
+                "name": "BasicConfigurationDsc",
+                "uri": "[concat(parameters('_artifactsLocation'), 'dsc/BasicConfigurationDsc.zip', parameters('_artifactsLocationSasToken'))]"
+            }
+        ],
+        "configurations": [
+            {
+                "name": "EnsureFirewall",
+                "description": "Demo configuration to ensure Firewall service is up and running",
+                "uri": "[concat(parameters('_artifactsLocation'), 'automation/dsc/EnsureFirewall.ps1', parameters('_artifactsLocationSasToken'))]"
+            },
+            {
+                "name": "CreateADDSForest",
+                "description": "Create ADDS forest",
+                "uri": "[concat(parameters('_artifactsLocation'), 'automation/dsc/CreateADDSForest.ps1', parameters('_artifactsLocationSasToken'))]"
+            },
+            {
+                "name": "AddDCtoDomain",
+                "description": "Add a new domain controller to the domain",
+                "uri": "[concat(parameters('_artifactsLocation'), 'automation/dsc/AddDCtoDomain.ps1', parameters('_artifactsLocationSasToken'))]"
+            },
+            {
+                "name": "InstallMonitoringAgents",
+                "description": "Install the Microsoft Monitoring and Dependency agents to connect a VM to the Log Analytics workspace",
+                "uri": "[concat(parameters('_artifactsLocation'), 'automation/dsc/InstallMonitoringAgents.ps1', parameters('_artifactsLocationSasToken'))]"
+            },
+            {
+                "name": "DeployMimikatz",
+                "description": "Prepare Victim-PC for the Mimikatz demo",
+                "uri": "[concat(parameters('_artifactsLocation'), 'automation/dsc/DeployMimikatz.ps1', parameters('_artifactsLocationSasToken'))]"
+            }
+        ],
+        "accounts": [
+            {
+                "location": "[if(equals(parameters('resourceNames').primaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').primaryLocation)]",
+                "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                "automationAccountName": "[parameters('resourceNames').primaryAutomationAccountName]",
+                "tags": "[parameters('tags').primaryOps]",
+                "credentials": "[variables('credentials')]",
+                "modules": "[variables('modules')]",
+                "configurations": "[variables('configurations')]"
+            },
+            {
+                "location": "[if(equals(parameters('resourceNames').secondaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').secondaryLocation)]",
+                "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+                "automationAccountName": "[parameters('resourceNames').secondaryAutomationAccountName]",
+                "tags": "[parameters('tags').secondaryOps]",
+                "credentials": "[variables('credentials')]",
+                "modules": "[variables('modules')]",
+                "configurations": "[variables('configurations')]"
+            }
+
+        ]
+    },
+    "resources": [
+        {
+            "name": "[concat(variables('accounts')[copyIndex()].automationAccountName, '_provisionDsc')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "copy": {
+                "name": "accountLoop",
+                "count": "[length(variables('accounts'))]"
+            },
+            "resourceGroup": "[variables('accounts')[copyIndex()].resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('accounts')[copyIndex()].location]"
+                    },
+                    "automationAccountName": {
+                        "value": "[variables('accounts')[copyIndex()].automationAccountName]"
+                    },
+                    "tags": {
+                        "value": "[variables('accounts')[copyIndex()].tags]"
+                    },
+                    "secureObject": {
+                        "value": {
+                            "credentials": "[variables('accounts')[copyIndex()].credentials]",
+                            "modules": "[variables('accounts')[copyIndex()].modules]",
+                            "configurations": "[variables('accounts')[copyIndex()].configurations]"
+                        }
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "automationAccountName": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object"
+                        },
+                        "secureObject": {
+                            "type": "secureObject"
+                        }
+                    },
+                    "variables": {
+                        "credentials": "[parameters('secureObject').credentials]",
+                        "modules": "[parameters('secureObject').modules]",
+                        "configurations": "[parameters('secureObject').configurations]"
+                    },
+                    "resources": [
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', variables('credentials')[copyIndex()].name)]",
+                            "type": "Microsoft.Automation/automationAccounts/credentials",
+                            "apiVersion": "2019-06-01",
+                            "copy": {
+                                "name": "primaryCredentialsLoop",
+                                "count": "[length(variables('credentials'))]",
+                            },
+                            "properties": {
+                                "userName": "[variables('credentials')[copyIndex()].userName]",
+                                "password": "[variables('credentials')[copyIndex()].password]",
+                                "description": "[variables('credentials')[copyIndex()].description]"
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', variables('modules')[copyIndex()].name)]",
+                            "type": "Microsoft.Automation/automationAccounts/modules",
+                            "apiVersion": "2019-06-01",
+                            "tags": "[parameters('tags')]",
+                            "copy": {
+                                "name": "modulesLoop",
+                                "count": "[length(variables('modules'))]",
+                                "mode": "serial"
+                            },
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "contentLink": {
+                                    "uri": "[variables('modules')[copyIndex()].uri]"
+                                }
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', variables('configurations')[copyIndex()].name)]",
+                            "type": "Microsoft.Automation/AutomationAccounts/Configurations",
+                            "apiVersion": "2019-06-01",
+                            "copy": {
+                                "name": "configurationLoop",
+                                "count": "[length(variables('configurations'))]"
+                            },
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "description": "[variables('configurations')[copyIndex()].description]",
+                                "state": "Published",
+                                "overwrite": "true",
+                                "source": {
+                                    "type": "uri",
+                                    "value": "[variables('configurations')[copyIndex()].uri]"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

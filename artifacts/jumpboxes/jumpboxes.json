@@ -1,0 +1,281 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"resourceNames": {
+			"type": "object"
+		},
+		"adminUsername": {
+			"type": "string"
+		},
+		"adminPassword": {
+			"type": "securestring"
+		},
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+	},
+	 "variables": {
+		 "sites": [
+			{
+				"location": "[parameters('resourceNames').primaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+				"automationAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Automation/automationAccounts', parameters('resourceNames').primaryAutomationAccountName)]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').primaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').primaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').primaryVnetName, parameters('resourceNames').dmzSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').primaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').primaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').jbox00VmName]",
+						"computerName": "[parameters('resourceNames').jbox00ComputerName]",
+						"ipAddress": "[parameters('resourceNames').jbox00VmIp]",
+						"dscConfigurationName": "EnsureFirewall"
+					}
+				]
+			},
+			{
+				"location": "[parameters('resourceNames').secondaryLocation]",
+				"resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+				"automationAccountResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Automation/automationAccounts', parameters('resourceNames').secondaryAutomationAccountName)]",
+				"diagStorageAccountResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Storage/storageAccounts', parameters('resourceNames').secondaryDiagStorageAccountName)]",
+				"subnetResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').dmzSubnetName)]",
+				"recoveryVaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+				"recoveryVaultRGName": "[parameters('resourceNames').secondaryOpsRGName]",
+				"virtualMachines": [
+					{
+						"vmName": "[parameters('resourceNames').jbox01VmName]",
+						"computerName": "[parameters('resourceNames').jbox01ComputerName]",
+						"ipAddress": "[parameters('resourceNames').jbox01VmIp]",
+						"dscConfigurationName": "EnsureFirewall"
+					}
+				]
+			}
+		 ]
+	 },
+	 "resources": [
+      	{
+			"name": "[concat('Deploy_JBOX_to_site', copyIndex())]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "siteLoop",
+				"count": "[length(variables('sites'))]"
+			},
+			"resourceGroup": "[variables('sites')[copyIndex()].resourceGroupName]",
+			"properties": {
+					"mode": "Incremental",
+					"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('sites')[copyIndex()].location]"
+					},
+					"adminUsername": {
+						"value": "[parameters('adminUsername')]"
+					},
+					"adminPassword": {
+						"value": "[parameters('adminPassword')]"
+					},
+					"virtualMachines": {
+						"value": "[variables('sites')[copyIndex()].virtualMachines]"
+					},
+					"automationAccountResourceId": {
+						"value": "[variables('sites')[copyIndex()].automationAccountResourceId]"
+					},
+					"diagStorageAccountResourceId": {
+						"value": "[variables('sites')[copyIndex()].diagStorageAccountResourceId]"
+					},
+					"subnetResourceId": {
+						"value": "[variables('sites')[copyIndex()].subnetResourceId]"
+					},
+					"recoveryVaultName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultName]"
+					},
+					"recoveryVaultRGName": {
+						"value": "[variables('sites')[copyIndex()].recoveryVaultRGName]"
+					},
+					"_artifactsLocation": {
+						"value": "[parameters('_artifactsLocation')]"
+					},
+					"_artifactsLocationSasToken": {
+						"value": "[parameters('_artifactsLocationSasToken')]"
+					}
+				},
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+						"adminUsername": {
+							"type": "string"
+						},
+						"adminPassword": {
+							"type": "securestring"
+						},
+						"virtualMachines": {
+							"type": "array"
+						},
+						"automationAccountResourceId": {
+							"type": "string"
+						},
+						"diagStorageAccountResourceId": {
+							"type": "string"
+						},
+						"subnetResourceId": {
+							"type": "string"
+						},
+						"recoveryVaultName": {
+							"type": "string"
+						},
+						"recoveryVaultRGName": {
+							"type": "string"
+						},
+						"_artifactsLocation": {
+							"type": "string"
+						},
+						"_artifactsLocationSasToken": {
+							"type": "securestring"
+						}
+					},
+					"variables": {
+						"vmTemplateLink": "[concat(parameters('_artifactsLocation'),'common/vm.json', parameters('_artifactsLocationSasToken'))]"
+					},
+					"resources": [
+						{  
+							"type":"Microsoft.Network/publicIPAddresses",
+							"name":"[concat(parameters('virtualMachines')[copyIndex()].vmName, '-pip')]",
+							"location":"[parameters('location')]",
+							"apiVersion":"2020-07-01",
+							"sku": {
+								"name": "Standard"
+							},
+							"copy": {
+								"name": "virtualMachineLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"properties":{
+								"publicIPAllocationMethod": "Static",
+								"publicIPAddressVersion": "IPv4",
+								"dnsSettings": {
+									"domainNameLabel": "[toLower(parameters('virtualMachines')[copyIndex()].vmName)]"
+								}
+							}
+						},
+						{
+							"name": "[concat('Deploy_VM', copyIndex())]",
+							"type": "Microsoft.Resources/deployments",
+							"apiVersion": "2020-10-01",
+							"copy": {
+								"name": "virtualMachineLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('virtualMachines')[copyIndex()].vmName, '-pip'))]"
+							],
+							"properties": {
+								"mode": "Incremental",
+								"templateLink": {
+									"uri": "[variables('vmTemplateLink')]"
+								},
+								"parameters": {
+									"location": {
+										"value": "[parameters('location')]"
+									},
+									"vmName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].vmName]"
+									},
+									"computerName": {
+										"value": "[parameters('virtualMachines')[copyIndex()].computerName]"
+									},
+									"vmSize": {
+										"value": "Standard_D2s_v3"
+									},
+									"adminUsername": {
+										"value": "[parameters('adminUsername')]"
+									},
+									"adminPassword": {
+										"value": "[parameters('adminPassword')]"
+									},
+									"imagePublisher": {
+										"value": "MicrosoftWindowsServer"
+									},
+									"imageOffer": {
+										"value": "WindowsServer"
+									},
+									"imageSKU": {
+										"value": "2016-Datacenter"
+									},
+									"diagStorageAccountId": {
+										"value": "[parameters('diagStorageAccountResourceId')]"
+									},
+									"subnetResourceId": {
+										"value": "[parameters('subnetResourceId')]"
+									},
+									"recoveryVaultName": {
+										"value": "[parameters('recoveryVaultName')]"
+									},
+									"recoveryVaultRGName": {
+										"value": "[parameters('recoveryVaultRGName')]"
+									},
+									"staticPrivateIpAddress": {
+										"value": "[parameters('virtualMachines')[copyIndex()].ipAddress]"
+									},
+									"publicIPAddressResourceId": {
+										"value": "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('virtualMachines')[copyIndex()].vmName, '-pip'))]"
+									}
+								}
+							}
+						},
+						{
+							"type": "Microsoft.Compute/virtualMachines/extensions",
+							"name": "[concat(parameters('virtualMachines')[copyIndex()].vmName,'/', parameters('virtualMachines')[copyIndex()].dscConfigurationName)]",
+							"apiVersion": "2020-06-01",
+							"location": "[parameters('location')]",
+							"copy": {
+								"name": "configurationLoop",
+								"count": "[length(parameters('virtualMachines'))]"
+							},
+							"dependsOn": [
+								"[resourceId('Microsoft.Resources/deployments', concat('Deploy_VM', copyIndex()))]"
+							],
+							"properties": {
+								"publisher": "Microsoft.Powershell",
+								"type": "DSC",
+								"typeHandlerVersion": "2.77",
+								"autoUpgradeMinorVersion": true,
+								"settings": {
+								"wmfVersion": "latest",
+								"configurationArguments": {
+									"RegistrationUrl" : "[reference(parameters('automationAccountResourceId'), '2019-06-01').registrationUrl]",
+									"NodeConfigurationName" : "[concat(parameters('virtualMachines')[copyIndex()].dscConfigurationName, '.localhost')]",
+									"ConfigurationMode": "ApplyandAutoCorrect",
+									"RebootNodeIfNeeded": true,
+									"ActionAfterReboot": "ContinueConfiguration"
+								}
+								},
+								"protectedSettings": {
+								"configurationArguments": {
+									"RegistrationKey": {
+									"userName": "NOT_USED",
+									"Password": "[listKeys(parameters('automationAccountResourceId'), '2019-06-01').Keys[0].value]"
+									}
+								}
+								}
+							}
+						}
+					]
+				}
+			}
+		}
+	]
+}

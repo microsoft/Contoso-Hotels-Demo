@@ -1,0 +1,93 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+	    "resourceNames": {
+    	    "type": "object"
+    	}
+	},
+  	"variables": {
+		"vmName": "[parameters('resourceNames').be00VmName]",
+		"vmRGName": "[parameters('resourceNames').primaryRetailRGName]",
+		"automationAccountName": "[parameters('resourceNames').primaryAutomationAccountName]",
+		"runbookName": "RestartAzureVmInResponseToVmAlertGlobalRunbook",
+		"webhookName": "[concat('RestartVM', uniqueString(resourceGroup().id))]",
+		"alertName": "CPULoadedAlertRule",
+		"actionGroupName": "CPUAlertActionGroup"
+	},
+	"resources": [
+		{
+			"name": "[concat(variables('automationAccountName'), '/', variables('webhookName'))]",
+			"type": "Microsoft.Automation/automationAccounts/webhooks",
+			"apiVersion": "2018-06-30",
+			"properties": {
+				"isEnabled": true,
+				"expiryTime": "2026-11-20",
+				"runbook": {
+					"name": "[variables('runbookName')]"
+				}
+			}
+		},
+		{
+			"name": "[variables('actionGroupName')]",
+			"type": "Microsoft.Insights/actionGroups",
+			"apiVersion": "2019-06-01",
+			"location": "global",
+			"dependsOn": [
+				"[resourceId('Microsoft.Automation/automationAccounts/webhooks', variables('automationAccountName'), variables('webhookName'))]"
+			],
+			"properties": {
+				"groupShortName": "CPUAlertAct",
+				"enabled": true,
+				"automationRunbookReceivers": [
+					{
+						"name": "RestartVM",
+						"serviceUri": "[reference(resourceId('Microsoft.Automation/automationAccounts/webhooks', variables('automationAccountName'), variables('webhookName'))).uri]",
+						"useCommonAlertSchema": false,
+						"automationAccountId": "[resourceId('microsoft.automation/automationaccounts', variables('automationAccountName'))]",
+						"runbookName": "Restart VM",
+						"webhookResourceId": "[resourceId('Microsoft.Automation/automationAccounts/webhooks', variables('automationAccountName'), variables('webhookName'))]",
+						"isGlobalRunbook": true
+					}
+				]
+			}
+		},
+		{
+			"name": "[variables('alertName')]",
+			"type": "Microsoft.Insights/metricAlerts",
+			"apiVersion": "2018-03-01",
+			"location": "global",
+			"dependsOn": [
+				"[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+			],
+			"properties": {
+				"description": "Percentage CPU greater than 80",
+				"severity": 0,
+				"enabled": true,
+				"scopes": [ "[resourceId(variables('vmRGName'), 'Microsoft.Compute/virtualMachines', variables('vmName'))]" ],
+				"evaluationFrequency": "PT1M",
+				"windowSize": "PT15M",
+				"criteria": {
+					"odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+					"allOf": [
+						{
+							"name": "1st criterion",
+							"metricName": "Percentage CPU",
+							"operator": "GreaterThan",
+							"threshold": 80,
+							"timeAggregation": "Average"
+						}
+					]
+				},
+				"actions": [
+					{
+						"actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', variables('actionGroupName'))]"
+					}
+				]
+			}
+		}
+  	]
+}

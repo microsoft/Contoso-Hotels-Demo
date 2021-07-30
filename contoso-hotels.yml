@@ -1,0 +1,1459 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+trigger: none
+
+parameters:
+- name: build
+  displayName: 'Build app'
+  type: boolean 
+  default: false
+
+- name: policy
+  displayName: Deploy Azure policy
+  type: boolean
+  default: false
+
+- name: provider
+  displayName: Register resource providers
+  type: boolean
+  default: false
+
+- name: staging
+  displayName: Deploy staging resources
+  type: boolean
+  default: false
+
+- name: common
+  displayName: Deploy common resources
+  type: boolean
+  default: false
+
+- name: blueprint
+  displayName: Deploy blueprints
+  type: boolean
+  default: false
+
+- name: automation
+  displayName: Deploy automation
+  type: boolean
+  default: false
+
+- name: logAnalytics
+  displayName: Deploy log analytics
+  type: boolean
+  default: false
+
+- name: network
+  displayName: Deploy network resources
+  type: boolean
+  default: false
+
+- name: jbox
+  displayName: Deploy jumpboxes
+  type: boolean
+  default: false
+
+- name: adds
+  displayName: Deploy ADDS
+  type: boolean
+  default: false
+
+- name: sql
+  displayName: Deploy SQL AlwaysOn
+  type: boolean
+  default: false
+
+- name: backupdb
+  displayName: Back up databases
+  type: boolean
+  default: false
+
+- name: backend
+  displayName: Deploy Backend application
+  type: boolean
+  default: false
+
+- name: asr
+  displayName: Deploy Backend replication (ASR)
+  type: boolean
+  default: false
+
+- name: frontend
+  displayName: Deploy Frontend application
+  type: boolean
+  default: false
+
+- name: misc
+  displayName: Deploy misc resources
+  type: boolean
+  default: false
+
+- name: post
+  displayName: Post-deploymnet tasks
+  type: boolean
+  default: false
+
+variables:
+- template: contoso-hotels-environment.variables.yml
+- template: contoso-hotels.variables.yml
+
+stages:
+- stage: Build
+  displayName: Build stage
+  condition: ${{ parameters.Build }}
+  jobs:
+  - job: DSC
+    displayName: Prepare DSC packages
+    pool: 
+      vmImage: windows-latest
+      
+    steps:
+    - pwsh: |
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/xpsdesiredstateconfiguration.8.10.0.nupkg' -OutFile xPSDesiredStateConfiguration.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/xwebadministration.3.2.0.nupkg' -OutFile xWebAdministration.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/networkingdsc.8.2.0.nupkg' -OutFile NetworkingDsc.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/computermanagementdsc.8.4.0.nupkg' -OutFile ComputerManagementDsc.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/xdisk.1.0.0.nupkg' -OutFile xDisk.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/xfailovercluster.1.15.0.nupkg' -OutFile xFailoverCluster.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/sqlserverdsc.13.2.0.nupkg' -OutFile SqlServerDsc.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/activedirectorydsc.6.0.1.nupkg' -OutFile ActiveDirectoryDsc.zip -Verbose
+        Invoke-WebRequest -Uri 'https://devopsgallerystorage.blob.core.windows.net/packages/cazurestorage.1.0.0.1.nupkg' -OutFile cAzureStorage.zip -Verbose
+
+    - pwsh: |
+        'xPSDesiredStateConfiguration.zip', 'xWebAdministration.zip', 'NetworkingDsc.zip', 'ComputerManagementDsc.zip', 'cAzureStorage.zip' `
+          | % { Expand-Archive $_ "ConfigureIIS\$($_.split('.')[0])" -Verbose }
+
+    - pwsh: |
+        Copy-Item $(Build.SourcesDirectory)\artifacts\automation\dsc\ConfigureIIS.ps1 ConfigureIIS\ -Verbose
+        Copy-Item $(Build.SourcesDirectory)\artifacts\automation\dsc\compositeResources\BasicConfigurationDsc ConfigureIIS\ -Recurse -Verbose
+
+    - task: ArchiveFiles@2
+      displayName: 'Create ConfigureIIS package'
+      inputs:
+        rootFolderOrFile: 'ConfigureIIS'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\dsc\ConfigureIIS.zip'
+
+    - pwsh: |
+        'ActiveDirectoryDsc.zip', 'SqlServerDsc.zip', 'NetworkingDsc.zip', 'xFailoverCluster.zip', 'xDisk.zip', 'xPSDesiredStateConfiguration.zip', 'ComputerManagementDsc.zip', 'cAzureStorage.zip' `
+          | % { Expand-Archive $_ "ConfigSQLAOn\$($_.split('.')[0])"  -Verbose }
+
+    - pwsh: |
+        Copy-Item $(Build.SourcesDirectory)\artifacts\automation\dsc\ConfigSQLAOn.ps1 ConfigSQLAOn\ -Verbose
+        Copy-Item $(Build.SourcesDirectory)\artifacts\automation\dsc\compositeResources\BasicConfigurationDsc ConfigSQLAOn\ -Recurse -Verbose
+
+    - task: ArchiveFiles@2
+      displayName: 'Create ConfigSQLAOn package'
+      inputs:
+        rootFolderOrFile: 'ConfigSQLAOn'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\dsc\ConfigSQLAOn.zip'
+
+    - task: ArchiveFiles@2
+      displayName: 'Create BasicConfigurationDsc package'
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)\artifacts\automation\dsc\compositeResources\BasicConfigurationDsc'
+        includeRootFolder: true
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\dsc\BasicConfigurationDsc.zip'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish DSC packages'
+      inputs:
+        ArtifactName: drop
+
+  - job: BuildSmartHotel
+    displayName: Build SmartHotel
+    pool: 
+      vmImage: windows-latest
+    steps:
+    - task: NuGetCommand@2
+      inputs:
+        command: 'restore'
+        restoreSolution: '**/applications/SmartHotel.Registration.Web/SmartHotel.Registration.Web.sln'
+        feedsToUse: 'select'
+
+    - task: MSBuild@1
+      inputs:
+        solution: '**/applications/SmartHotel.Registration.Web/SmartHotel.Registration.Web.sln'
+        msbuildArchitecture: 'x64'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: 'applications\SmartHotel.Registration.Web'
+        includeRootFolder: true
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\SmartHotel.Registration.Web.zip'
+        replaceExistingArchive: true
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: 'applications\SmartHotel.Registration.Wcf'
+        includeRootFolder: true
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\SmartHotel.Registration.Wcf.zip'
+        replaceExistingArchive: true
+
+    - task: CopyFiles@2
+      inputs:
+        contents: 'applications\*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish artifacts'
+      inputs:
+        ArtifactName: drop
+
+  - job: BuildClassicAppLoad
+    displayName: Build ClassicAppLoad
+    pool: 
+      vmImage: windows-latest
+    steps:
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'build'
+        projects: '**/applications/ClassicAppLoad/ClassicAppLoad.sln'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: 'applications\ClassicAppLoad\ClassicAppLoad\bin\Debug\netcoreapp2.1'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)\LoadFunc.zip'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish artifacts'
+      inputs:
+        ArtifactName: drop
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  condition: or(succeeded('Build'), not( ${{ parameters.Build }} ))
+
+  jobs:
+  - template: ${{ variables['Build.SourcesDirectory'] }}\artifacts\policy\deploy-policy.yml
+    parameters:
+      deploy: ${{ parameters.policy }}
+
+  - job: provider
+    displayName: Register resource providers
+    condition: ${{ parameters.provider }}
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Register resource providers
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          foreach ($resourceProvider in $(resourceProviders)) {
+            Write-Host "Registring rersource provider: $resourceProvider"
+            if ((Get-AzResourceProvider -ProviderNamespace $resourceProvider).RegistrationState -contains 'NotRegistered' ) {
+              Register-AzResourceProvider -ProviderNamespace $resourceProvider
+            }
+          }
+
+    - task: AzurePowerShell@4
+      displayName: Register resource provider features
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          foreach ($feature in $(resourceProviderFeatures)) {
+            Write-Host "Registring rersource provider feature: $($feature.FeatureName)"
+            if ((Get-AzProviderFeature -FeatureName $feature.FeatureName -ProviderNamespace $feature.ProviderNamespace).RegistrationState -contains 'NotRegistered' ) {
+              Register-AzProviderFeature -FeatureName $feature.FeatureName -ProviderNamespace $feature.ProviderNamespace
+            }
+          }
+
+  - job: Staging
+    displayName: Deploy staging resources
+    dependsOn: provider
+    condition: and(or(succeeded('provider'), not(${{ parameters.provider }})), ${{ parameters.staging }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - download: current
+      artifact: drop
+
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: $(Pipeline.Workspace)\drop
+        contents: '**'
+        targetFolder: $(Build.SourcesDirectory)\$(stagingContainer)
+
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '$(Pipeline.Workspace)\drop\SmartHotel.Registration.Web.zip' 
+        destinationFolder: '$(Build.SourcesDirectory)\$(stagingContainer)\'
+        cleanDestinationFolder: false
+
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '$(Pipeline.Workspace)\drop\SmartHotel.Registration.Wcf.zip' 
+        destinationFolder: '$(Build.SourcesDirectory)\$(stagingContainer)\'
+        cleanDestinationFolder: false
+
+    - task: AzurePowerShell@4
+      displayName: Create resource group
+      #enabled: false
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription:  $(azureSubscriptionEndpoint)
+        ScriptType: InlineScript
+        Inline: |
+          New-AzDeployment -Name "StagingRG_$(Build.BuildNumber)" -Location '$(location)' -TemplateFile "$(Build.SourcesDirectory)/artifacts/staging/resourcegroup.json" `
+            -resourceGroupLocation '$(location)' `
+            -resourceGroupName $(resourceNames).stagingRGName `
+            -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy staging storage account
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          New-AzResourceGroupDeployment -Name 'Staging_StorageAccount_$(Build.BuildNumber)' -ResourceGroupName $(resourceNames).stagingRGName `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/staging/storageAccount.json' `
+            -resourceNames $(resourceNames) `
+            -Verbose
+
+    - task: AzureCLI@2
+      displayName: Sync artifacts
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        scriptType: pscore
+        scriptLocation: inlineScript
+        inlineScript: |
+          az storage blob sync -c '$(stagingContainer)' --account-name $(stagingStorageAccount) -s $(Build.SourcesDirectory)\$(stagingContainer)
+
+    - task: AzureCLI@2
+      displayName: Sync mimikatz demo artifacts
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        scriptType: pscore
+        scriptLocation: inlineScript
+        inlineScript: |
+          az storage blob sync -c '$(privatefilesContainer)' --account-name '$(stagingStorageAccount)' -s '$(Build.SourcesDirectory)\artifacts\misc\mimikatz\att^^^&ck' -d 'mimikatzDemoArtifacts\att^^^&ck'
+
+  - job: Common
+    displayName: Deploy common resources
+    dependsOn: staging
+    condition: and(or(succeeded('staging'), not(${{ parameters.staging }})), ${{ parameters.common }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Deploy resource groups
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzDeployment -Name "ResourceGroups_$(Build.DefinitionName)_$(Build.BuildNumber)" -location $(location) `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/resourceGroups/resourceGroups.json" `
+            -resourceNames $(resourceNames) `
+            -tags $(tags) `
+            -Verbose
+      
+    - task: AzurePowerShell@4
+      displayName: Deploy storage accounts
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "StorageAccounts_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/storage/storageAccounts.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Remove key vaults in removed state
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          Get-AzKeyVault -InRemovedState | ? { $_.VaultName -eq $(resourceNames).primaryKeyVaultName -or $_.VaultName -eq $(resourceNames).secondaryKeyVaultName } | Remove-AzKeyVault -InRemovedState -Force
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'CHDiskEncryptionObjectId'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy recovery and key vaults
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Vaults_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/vaults/vaults.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              diskEncryptionServicePrincipalObjectId = '$(CHDiskEncryptionObjectId)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy application insights
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "AppInsights_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/applicationInsights.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+  - job: Blueprint
+    displayName: Deploy blueprints
+    dependsOn: common
+    condition: and(or(succeeded('common'), not(${{ parameters.common }})), ${{ parameters.blueprint }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision blueprints
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          cd $(Build.SourcesDirectory)\artifacts\blueprints
+          .\ProvisionBlueprints.ps1 -location $(sitePrimaryLocation) -primaryOpsRGName $(resourceNames).primaryOpsRGName -appServiceName $(resourceNames).appServiceName -appServicePlanName $(resourceNames).appServicePlanName
+
+  - job: Automation
+    displayName: Deploy automation
+    dependsOn: common
+    condition: and(or(succeeded('common'), not(${{ parameters.common }})), ${{ parameters.automation }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzurePowerShell@4
+      displayName: Deploy automation accounts
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "AutomationAccounts_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/automation/accounts.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              tags = $(tags)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Unregister scheduled runbooks
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          #Remove jobSchedules
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzAutomationAccount | ? { $_.AutomationAccountName -eq $(resourceNames).primaryAutomationAccountName -or $_.AutomationAccountName -eq $(resourceNames).secondaryAutomationAccountName } `
+            | Get-AzAutomationRunbook | Get-AzAutomationScheduledRunbook | Unregister-AzAutomationScheduledRunbook -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+
+    - task: AzurePowerShell@4
+      displayName: Deploy runbooks
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "AutomationAccount_Runbooks_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/automation/runbooks.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy software update configuration
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "SoftwareUpdateConfiguration_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/automation/softwareUpdateConfiguration.json" `
+            -TemplateParameterObject @{
+              automationAccountName = $(resourceNames).primaryAutomationAccountName
+              startTime = (Get-Date).AddDays(7 - (Get-Date).DayOfWeek.value__ ).ToString('yyyy-MM-ddT02:15:00.000')
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Unregister unresponsive Dsc nodes
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          ## Unregister unresponsive nodes
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzAutomationAccount | ? { $_.AutomationAccountName -eq $(resourceNames).primaryAutomationAccountName -or $_.AutomationAccountName -eq $(resourceNames).secondaryAutomationAccountName } `
+            | Get-AzAutomationDscNode | ? Status -eq 'Unresponsive' | Unregister-AzAutomationDscNode -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername'
+
+    - task: AzurePowerShell@4
+      displayName: Provision DSC
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $stagingSAKeys = Get-AzStorageAccountKey -ResourceGroupName $(stagingRG) -AccountName $(stagingStorageAccount)
+
+          New-AzResourceGroupDeployment -Name "AutomationAccount_ProvisionDSC_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/automation/provisionDsc.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              tags = $(tags)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              stagingSAKey = "$($stagingSAKeys[0].Value)"
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Compile DSC configurations
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $accounts = @(
+            @{
+              name = $(resourceNames).primaryAutomationAccountName;
+              resourceGroupName = $(resourceNames).primaryOpsRGName
+            };
+            @{
+              name = $(resourceNames).secondaryAutomationAccountName
+              resourceGroupName = $(resourceNames).secondaryOpsRGName
+            }
+          )
+
+          foreach ($account in $accounts) {
+            foreach ($configuration in $(dscConfigurations)) {
+              $attempt = 1
+              do {
+                Write-Host "Compile $($configuration.name) configuration. Attempt: $attempt"
+                $compilationJob = Start-AzAutomationDscCompilationJob -ResourceGroupName $account.resourceGroupName -AutomationAccountName $account.name -ConfigurationName $configuration.name -Parameters $configuration.parameters
+
+                while ($null -eq $compilationJob.EndTime -and $null -eq $compilationJob.Exception)
+                {
+                    $compilationJob = $compilationJob | Get-AzAutomationDscCompilationJob
+                    Start-Sleep -Seconds 3
+                }
+              } while ($attempt++ -lt 3 -and $compilationJob.Exception)
+
+              if ($compilationJob.Exception) { throw $compilationJob.Exception }
+
+              $compilationJob | Get-AzAutomationDscCompilationJobOutput –Stream Any
+            }
+          }
+
+  - job: LogAnalytics
+    displayName: Deploy log analytics
+    dependsOn: automation
+    condition: and(or(succeeded('automation'), not(${{ parameters.automation }})), ${{ parameters.logAnalytics }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Deploy log analytics workspace
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "LogAnalytics_Workspace_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/loganalytics/workspace.json" `
+            -TemplateParameterObject @{
+              location = '$(sitePrimaryLocation)'
+              resourceNames = $(resourceNames)
+              tags = $(tags).primaryOps
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy data sources
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "LogAnalytics_DataSources_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/loganalytics/workspace.dataSources.json" `
+            -TemplateParameterFile "$(Build.SourcesDirectory)/artifacts/loganalytics/workspace.dataSources.parameters.json" `
+            -location '$(sitePrimaryLocation)' `
+            -workspaceName $(resourceNames).workspaceName `
+            -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy saved searches
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "LogAnalytics_SavedSearches_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/loganalytics/workspace.savedSearches.json" `
+            -workspaceName $(resourceNames).workspaceName `
+            -Verbose
+
+  - job: network
+    displayName: Deploy network
+    dependsOn:
+    - common #storage accounts
+    - LogAnalytics
+    condition: and(or(succeeded('common'), not(${{ parameters.common }})), or(succeeded('LogAnalytics'), not(${{ parameters.LogAnalytics }})), ${{ parameters.network }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzurePowerShell@4
+      displayName: Deploy network security groups
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "NetworkSecurityGroups_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/networking/nsgs.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              tags = $(tags)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy virtual networks
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "VirtualNetworks_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/networking/vnets.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              tags = $(tags)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy peerings
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Peerings_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/networking/peerings.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Configure Flow Logging and Traffic Analytics
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $workspaceResource = Get-AzOperationalInsightsWorkspace -Name $(resourceNames).workspaceName -ResourceGroupName $(resourceNames).primaryOpsRGName
+          $networkWatchers = Get-AzNetworkWatcher
+          $networkSecurityGroups = Get-AzNetworkSecurityGroup
+          $storageAccounts = Get-AzStorageAccount | ? { $_.StorageAccountName -eq $(resourceNames).primaryDiagStorageAccountName -or $_.StorageAccountName -eq $(resourceNames).secondaryDiagStorageAccountName }
+
+          foreach ($networkSecurityGroup in $networkSecurityGroups) {
+
+            $networkWatcher = $networkWatchers | ? location -eq $networkSecurityGroup.location
+            $networkWatcherFlowLogStatus = Get-AzNetworkWatcherFlowLogStatus -NetworkWatcher $networkWatcher -TargetResourceId $networkSecurityGroup.Id
+
+            if (!$networkWatcherFlowLogStatus.FlowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled) {
+
+              Set-AzNetworkWatcherConfigFlowLog -NetworkWatcher $networkWatcher -TargetResourceId $networkSecurityGroup.Id -EnableFlowLog $true `
+                -StorageAccountId ($storageAccounts | ? location -eq $networkSecurityGroup.location).id -EnableTrafficAnalytics -Workspace $workspaceResource -TrafficAnalyticsInterval 60
+            }
+          }
+
+  - job: Jumpboxes
+    displayName: Deploy jumpboxes
+    dependsOn: network
+    condition: and(or(succeeded('network'), not(${{ parameters.network }})), ${{ parameters.jbox }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy jumpboxes
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "JBOX_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/jumpboxes/jumpboxes.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+  - job: ADDS
+    displayName: Deploy ADDS
+    dependsOn: network
+    condition: and(or(succeeded('network'), not(${{ parameters.network }})), ${{ parameters.adds }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy ADDS virtual machines
+      enabled: ${{ parameters.adds }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "ADDS_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/adds/adds.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Appply CreateADDSForest Dsc configuration
+      enabled: ${{ parameters.adds }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $configurations = @(
+            @{
+              name = 'CreateADDSForest'
+              vmName = $(resourceNames).dc00VmName
+            }
+          )
+
+          New-AzResourceGroupDeployment -ResourceGroupName $(resourceNames).primaryInfraRGName `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/common/appplyDsc.json' `
+            -location $(sitePrimaryLocation) `
+            -configurations $configurations `
+            -automationAccountName $(resourceNames).primaryAutomationAccountName `
+            -automationAccountRGName $(resourceNames).primaryOpsRGName `
+            -Verbose
+
+  - job: SQL
+    displayName: Deploy SQL
+    dependsOn: adds
+    condition: and(or(succeeded('adds'), not(${{ parameters.adds }})), ${{ parameters.sql }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy SQL
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          #Remove failed extensions
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).primaryRetailRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).secondaryRetailRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzResource -ResourceName 'sqlPrep' -ResourceType 'Microsoft.Compute/virtualMachines/extensions' | Get-AzResource -ExpandProperties `
+            | ? { $_.Properties.provisioningState -eq 'Failed' } | Remove-AzResource -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).primaryRetailRGName -LockName Protected -LockLevel CanNotDelete -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).secondaryRetailRGName -LockName Protected -LockLevel CanNotDelete -Force
+
+          New-AzResourceGroupDeployment -Name "SQL_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/sqlaon/sqlaon.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Back up system databases
+      enabled: ${{ parameters.backupdb }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "SQL_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/sqlaon/backUpDatabases.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Trigger database discovery
+      enabled: ${{ parameters.backupdb }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $vaultName = $(resourceNames).primaryRecoveryVaultName
+          Write-Output "Getting recovery service vault: $vaultName"
+          $vault = Get-AzRecoveryServicesVault -Name $vaultName
+
+          Write-Output 'Triggers the discovery of any unprotected items'
+          Get-AzRecoveryServicesBackupContainer -VaultId $vault.id -ContainerType AzureVMAppContainer | %{ Initialize-AzRecoveryServicesBackupProtectableItem -Container $_ -WorkloadType MSSQL -VaultId $vault.id }
+
+    - task: AzurePowerShell@4
+      displayName: Back up SmartHotel.Registration database
+      enabled: ${{ parameters.backupdb }}
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $vaultName = $(resourceNames).primaryRecoveryVaultName
+          Write-Output "Recovery Vault Name: $vaultName"
+
+          $policyName = 'HourlyLogBackup'
+          $dbName = 'SmartHotel.Registration'
+
+          Write-Output "Getting recovery service vault: $vaultName"
+          $vault = Get-AzRecoveryServicesVault -Name $vaultName
+
+          Write-Output "Getting backup protection policy: $policyName"
+          $policy = Get-AzRecoveryServicesBackupProtectionPolicy -Name $policyName -VaultId $vault.ID
+
+          if (-not $policy) {
+
+            Write-Output "Creating backup protection policy: $policyName"
+            $schPol = Get-AzRecoveryServicesBackupSchedulePolicyObject -WorkloadType "MSSQL"
+
+            $retPol = Get-AzRecoveryServicesBackupRetentionPolicyObject -WorkloadType "MSSQL"
+
+            $policy = New-AzRecoveryServicesBackupProtectionPolicy -Name $policyName -VaultId $vault.ID -WorkloadType "MSSQL" -RetentionPolicy $retPol -SchedulePolicy $schPol -Verbose
+          }
+
+          Write-Output "Looking for backup items of $dbName"
+          $bi = Get-AzRecoveryServicesBackupItem -VaultId $vault.ID -BackupManagementType AzureWorkload -WorkloadType MSSQL | Where Name -match $dbName | Where ProtectionState -eq 'Protected'
+
+          if (!$bi) {
+            Write-Output 'Getting protectable items where ParentName is "SQLag" and ProtectableItemType is "SQLDataBase"'
+            $pi = Get-AzRecoveryServicesBackupProtectableItem -WorkloadType MSSQL -VaultId $vault.ID | Where ParentName -eq 'SQLag' | Where ProtectableItemType -eq 'SQLDataBase' | Select -First 1 -Wait
+
+            Write-Output "Enable backup protection: $dbName"
+            Enable-AzRecoveryServicesBackupProtection -ProtectableItem $pi -VaultId $vault.ID -Policy $policy -Verbose
+          } 
+          else {
+            Write-Output "$dbName is already protected"
+          }
+
+  - job: Backend
+    displayName: Deploy backend
+    dependsOn: bdc
+    condition: and(or(succeeded('adds'), not(${{ parameters.adds }})), ${{ parameters.backend }})
+    # dependsOn: adds
+    # condition: and(or(succeeded('adds'), not(${{ parameters.adds }})), ${{ parameters.backend }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername, CHDiskEncryptionClientId, CHDiskEncryptionClientSecret'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy backend app to primary site
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "BackEndToPrimarySite_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryRetailRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/primaryBackend.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              diskEncryptionAppId = '$(CHDiskEncryptionClientId)'
+              diskEncryptionAppSecret = '$(CHDiskEncryptionClientSecret)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy backend resources to secondary site
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "BackEndResourcesToSecondarySite_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).secondaryRetailRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/secondaryBackend.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Remove recovery plan
+      enabled: ${{ parameters.asr }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          Get-AzRecoveryServicesVault -Name $(resourceNames).secondaryRecoveryVaultName | Set-AzRecoveryServicesAsrVaultContext
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzRecoveryServicesAsrRecoveryPlan | ? Name -eq $(resourceNames).asrRecoveryPlanName | Remove-AzRecoveryServicesAsrRecoveryPlan
+          New-AzResourceLock -ResourceGroupName $(resourceNames).secondaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+
+    - task: AzurePowerShell@4
+      displayName: Deploy ASR cache storage account
+      enabled: ${{ parameters.asr }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "AsrCacheStorageAccount_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryRetailRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/asrCacheStorageAccount.json" `
+            -TemplateParameterObject @{
+              location = $(resourceNames).primaryLocation
+              name = $(resourceNames).asrStorageAccountName
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy Backend replication (ASR)
+      enabled: ${{ parameters.asr }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "EnableASR_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).secondaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/deployAsr.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy recovery plan (ASR)
+      enabled: ${{ parameters.asr }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "EnableASR_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).secondaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/backend/recoveryPlan.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy CPU load script
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "CpuLoad_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryRetailRGName `
+            -TemplateUri "$(Build.SourcesDirectory)/artifacts/backend/cpuLoadScript.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+          } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy CPU load alert and action group
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          Get-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -ErrorAction SilentlyContinue | Remove-AzResourceLock -Force
+          Get-AzResource -ResourceGroupName $(resourceNames).primaryOpsRGName -ResourceType 'Microsoft.Automation/automationAccounts/webhooks' -ResourceName $(resourceNames).primaryAutomationAccountName -ExpandProperties `
+            | ? { $_.Properties.runbook.name -eq 'RestartAzureVmInResponseToVmAlertGlobalRunbook' } | Remove-AzResource -Force
+          New-AzResourceLock -ResourceGroupName $(resourceNames).primaryOpsRGName -LockName Protected -LockLevel CanNotDelete -Force
+
+          New-AzResourceGroupDeployment -Name "CpuLoad_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateUri "$(Build.SourcesDirectory)/artifacts/backend/cpuLoadAlert.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+          } -Verbose
+
+  - job: Frontend
+    displayName: Deploy frontend
+    dependsOn: network
+    condition: ${{ parameters.frontend }}
+    # dependsOn: adds
+    # condition: and(or(succeeded('adds'), not(${{ parameters.adds }})), ${{ parameters.frontend }})
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzurePowerShell@4
+      displayName: Deploy frontend NSG
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Deploy_NSGs_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/frontend/nsgs.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername, CertAppGatewayWF'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy frontend app
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Deploy_Frontend_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryRetailRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/frontend/frontend.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              appGatewayCertData = '$(CertAppGatewayWF)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy traffic manager
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Deploy_TrafficManager_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/frontend/trafficManager.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy Classic App Load function
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -ResourceGroupName $(resourceNames).primaryRetailRGName -Name 'LoadFunctionApp_$(Build.BuildNumber)' `
+          -TemplateFile '$(Build.SourcesDirectory)\artifacts\frontend\loadFunction.json' `
+          -TemplateParameterObject @{
+            resourceNames = $(resourceNames)
+            _artifactsLocation = '$(_artifactsLocation)'
+            _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+          } -Verbose
+
+  - job: misc
+    displayName: Deploy miscellaneous resources
+    dependsOn: bdc
+    condition: ${{ parameters.misc }}
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername, sshPublicKey'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy mimikatz
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Deploy_mimikatz_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/misc/mimikatz/mimikatz.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminPassword = '$(adminPassword)'
+              _artifactsLocation = '$(_artifactsLocation)'
+              _artifactsLocationSasToken = '$(_artifactsLocationSasToken)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy Linux VM
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Deploy_LinuxVM_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryRetailRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/misc/linuxvm/linuxVm.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              adminUsername = '$(adminUsername)'
+              adminSshKey = '$(sshPublicKey)'
+            } -Verbose
+
+  - job: bdc
+    displayName: Deploy BDCs
+    dependsOn: sql
+    condition: ${{ parameters.adds }}
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: AzurePowerShell@4
+      inputs:
+        azurePowerShellVersion: LatestVersion    
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $sa = Get-AzStorageAccount -ResourceGroupName $(stagingRG) -Name $(stagingStorageAccount)
+          $artifactsLocationSasToken = New-AzStorageContainerSASToken -Name $(stagingContainer) -Context $sa.Context -Permission r
+          Write-Host "##vso[task.setvariable variable=_artifactsLocation]$($sa.Context.BlobEndPoint)$(stagingContainer)/"
+          Write-Host "##vso[task.setvariable variable=_artifactsLocationSasToken;issecret=true]$artifactsLocationSasToken"
+      displayName: Set artifacts location variables
+
+    - task: AzureKeyVault@1
+      displayName: Load secrets
+      inputs:
+        azureSubscription: '$(stagingSubscriptionEndpoint)'
+        KeyVaultName: '$(stagingKeyVaultName)'
+        SecretsFilter: 'adminPassword, adminUsername, sshPublicKey'
+
+    - task: AzurePowerShell@4
+      displayName: Deploy BDCs
+      enabled: ${{ parameters.adds }}
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $primarySiteConfigurations = @(
+            @{
+              name = 'AddDCtoDomain'
+              vmName = $(resourceNames).dc01VmName
+            }
+          )
+
+          $secondarySiteConfigurations = @(
+            @{
+              name = 'AddDCtoDomain'
+              vmName = $(resourceNames).dc02VmName
+            },
+            @{
+              name = 'AddDCtoDomain'
+              vmName = $(resourceNames).dc03VmName
+            }
+          )
+
+          New-AzResourceGroupDeployment -ResourceGroupName $(resourceNames).primaryInfraRGName `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/common/appplyDsc.json' `
+            -location $(sitePrimaryLocation) `
+            -configurations $primarySiteConfigurations `
+            -automationAccountName $(resourceNames).primaryAutomationAccountName `
+            -automationAccountRGName $(resourceNames).primaryOpsRGName `
+            -Verbose -AsJob
+
+          New-AzResourceGroupDeployment -ResourceGroupName $(resourceNames).secondaryInfraRGName `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/common/appplyDsc.json' `
+            -location $(siteSecondaryLocation) `
+            -configurations $secondarySiteConfigurations `
+            -automationAccountName $(resourceNames).secondaryAutomationAccountName `
+            -automationAccountRGName $(resourceNames).secondaryOpsRGName `
+            -Verbose -AsJob
+
+          Get-Job | Wait-Job
+          Get-Job | Receive-Job
+
+  - job: post
+    displayName: Post-deploymnet tasks
+    dependsOn: 
+    - bdc
+    - sql
+    - backend
+    - frontend
+    - misc
+    condition: ${{ parameters.post }}
+    pool:
+      vmImage: windows-latest
+    steps:
+
+    - task: AzurePowerShell@4
+      displayName: Update Security Center settings
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          $workspaceResourceId = (Get-AzResource -Name $(resourceNames).workspaceName -ResourceType 'Microsoft.OperationalInsights/workspaces').ResourceId
+          New-AzDeployment -Name "SecurityCenter_$(Build.BuildNumber)" -location $(location) `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/securityCenter/securityCenter.json" `
+            -workspaceResourceId $workspaceResourceId `
+            -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Update Advisor settings
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzDeployment -Name "Advisor_$(Build.BuildNumber)" -location $(location) `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/advisor/configuration.json" -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Enable JIT
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: '$(azureSubscriptionEndpoint)'
+        ScriptType: InlineScript
+        Inline: |
+          New-AzResourceGroupDeployment -Name "JIT_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile "$(Build.SourcesDirectory)/artifacts/jumpboxes/enable_jit.json" `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy budget
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          Get-AzConsumptionBudget -Name $(budgetName) -ErrorAction SilentlyContinue | Remove-AzConsumptionBudget
+          New-AzDeployment -Name 'Budget_$(Build.BuildNumber)' -Location '$(location)' `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/cost/budget.json' `
+            -budgetName $(budgetName) `
+            -amount $(budgetAmount) `
+            -startDate (get-date -Day 1).ToString('yyyy-MM-dd') `
+            -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy dashboards
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          New-AzResourceGroupDeployment -Name "Dashboards_$(Build.BuildNumber)" -ResourceGroupName $(resourceNames).primaryOpsRGName `
+            -TemplateFile '$(Build.SourcesDirectory)/artifacts/dashboards/cost.json' `
+            -location $(sitePrimaryLocation) `
+            -budgetName $(budgetName) `
+            -suffix $(suffix) `
+            -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: 'Apply sourceroutingbehavior remediation'
+      inputs:
+        azurePowerShellVersion: LatestVersion
+        azureSubscription: $(azureSubscriptionEndpoint)
+        ScriptType: InlineScript
+        Inline: |
+          $nics = Get-AzNetworkInterface | ? { $_.IpConfigurations.PublicIpAddress } 
+          foreach ($nic in $nics) 
+          { 
+            $vms = Get-AzResource -Id $nic.VirtualMachine.id | ? { $_.Properties.storageProfile.osDisk.osType -eq 'Windows' }
+            foreach ($vm in $vms)
+            {
+              Invoke-AzResourceAction -ResourceId $vm.Id -Action 'runCommand' -Parameters @{commandId="RunPowerShellScript"; script=@("netsh int ipv4 set global sourceroutingbehavior=drop")} -ApiVersion '2018-04-01' -Force
+            }
+          }
+
+    - task: AzurePowerShell@4
+      displayName: Propagate tags
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          Get-AzResourceGroup | ? { $_.ResourceGroupName -match '^$(prefix)' -and $null -ne $_.Tags } | % {
+            Get-AzResource -ResourceGroupName $_.ResourceGroupName | Update-AzTag -Tag $_.Tags -Operation Merge -ErrorAction SilentlyContinue
+          }
+
+
+- stage: DiagnosticSettings
+  displayName: Deploy Diagnostics Policy Initiative
+  dependsOn: Deploy
+  condition: ${{ parameters.policy }}
+  jobs:
+  - template: ${{ variables['Build.SourcesDirectory'] }}\artifacts\policy\diagnosticSettings\diagnostic-policy.yml

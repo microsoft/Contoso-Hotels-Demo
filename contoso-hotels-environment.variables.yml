@@ -1,0 +1,27 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+variables:
+- name: prefix
+  value: '<name prefix>'
+- name: suffix
+  value: '<name suffix>'
+- name: azureSubscriptionEndpoint
+  value: '<ADO service connection name>'
+
+- name: stagingSubscriptionEndpoint
+  value: '<Staging key vault ADO service connection name>' # Use $(azureSubscriptionEndpoint) if the key vault is in the same subscription
+- name: stagingKeyVaultRGName
+  value: '<key vault resource group name>'
+- name: stagingKeyVaultName
+  value: '<key vault name>'
+- name: stagingStorageAccount
+  value: '<Staging storage account name>' # Name must be unique globally. For example, <prefix>stagingsa<suffix> 
+
+- name: sitePrimaryLocation
+  value: '<Azure primary region>'
+- name: siteSecondaryLocation
+  value: '<Azure secondary region>'
+
+- name: applicationGatewayDomainNameLabel
+  value: '<App Gateway domain name label>' # Name must be unique globally. For example, <prefix>contosohotels<suffix>

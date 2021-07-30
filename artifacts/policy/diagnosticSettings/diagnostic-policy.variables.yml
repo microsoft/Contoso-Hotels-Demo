@@ -1,0 +1,24 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+variables:
+- name: policyTemplatePath
+  value: $(Build.SourcesDirectory)/artifacts/policy/diagnosticSettings/policyTemplates
+- name: armTemplatePath
+  value: $(Build.SourcesDirectory)/artifacts/policy/diagnosticSettings/armTemplates
+- name: initiativeDisplayName
+  value: Azure Diagnostics Policy Initiative for a Log Analytics Workspace
+- name: templateFileName
+  value: $(prefix)-ARMTemplateExport$(suffix)
+- name: exportDir
+  value: $(Agent.TempDirectory)/ARMTemplate
+- name: isChanged
+  value: false
+- name: contributorRoleDefinitionId
+  value: b24988ac-6180-42a0-ab88-20f7382dd24c
+- name: policy.profileName
+  value: SetByCustomPolicy
+- name: policy.identityType
+  value: SystemAssigned
+- name: notScopeRGs
+  value: '@()'

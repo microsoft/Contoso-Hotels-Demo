@@ -1,0 +1,134 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{  
+    "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion":"1.0.0.0",
+    "parameters": {
+        "location": {  
+            "type":"string"
+        },
+        "tags": {  
+            "type": "object",
+            "defaultValue": {}
+        },
+        "name": {  
+            "type":"string"
+        },
+        "ipAddress": {  
+            "type":"string",
+            "defaultValue": ""
+        },
+        "enableFloatingIP": {  
+            "type": "bool",
+            "defaultValue": false
+        },
+        "subnetId": {
+            "type": "string"
+        },
+        "frontendPort": {
+            "type": "int"
+        },
+        "backendPort": {
+            "type": "int",
+            "defaultValue": "[parameters('frontendPort')]"
+        },
+        "probePort": {
+            "type": "int"
+        },
+        "sku": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "Standard"
+            ],
+            "defaultValue": "Basic"
+        }
+    },
+    "variables": {
+        "lbName": "[parameters('name')]",
+        "location": "[parameters('location')]",
+        "frontendPort": "[parameters('frontendPort')]",
+        "backendPort": "[parameters('backendPort')]",
+        "probePort": "[parameters('probePort')]",
+        "lbIpAddress": "[parameters('ipAddress')]",
+        "enableFloatingIP": "[parameters('enableFloatingIP')]",
+        "subnetId": "[parameters('subnetId')]",
+        "lbRule": "[concat(variables('lbName'), 'Rule1')]",
+        "lbFE": "[concat(variables('lbName'), 'fe1')]",
+        "lbBE": "[concat(variables('lbName'), 'be1')]",
+        "lbFEConfigID": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('lbName'), variables('lbFE'))]",
+        "lbBEAddressPoolID": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('lbName'), variables('lbBE'))]",
+        "lbProbe": "[concat(variables('lbName'), 'Probe1')]",
+        "lbProbeID": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('lbName'), variables('lbProbe'))]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2020-07-01",
+            "name": "[variables('lbName')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[variables('location')]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('sku')]"
+            },
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "[variables('lbFE')]",
+                        "properties": {
+                            "privateIPAddress": "[variables('lbIpAddress')]",
+                            "privateIPAllocationMethod": "[if(empty(variables('lbIpAddress')), 'Dynamic', 'Static')]",
+                            "subnet": {
+                                "id": "[variables('subnetId')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "[variables('lbBE')]"
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "[variables('lbRule')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[variables('lbFEConfigID')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[variables('lbBEAddressPoolID')]"
+                            },
+                            "probe": {
+                                "id": "[variables('lbProbeID')]"
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": "[variables('frontendPort')]",
+                            "backendPort": "[variables('backendPort')]",
+                            "enableFloatingIP": "[variables('enableFloatingIP')]",
+                            "idleTimeoutInMinutes": 15
+                        }
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "[variables('lbProbe')]",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": "[variables('probePort')]",
+                            "intervalInSeconds": 5,
+                            "numberOfProbes": 2
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs":{
+        "lbBEAddressPoolID": {
+           "type": "string",
+           "value": "[variables('lbBEAddressPoolID')]"
+        }
+     }    
+ }

@@ -1,0 +1,76 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{  
+   "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion":"1.0.0.0",
+   "parameters":{  
+		"resourceNames": {
+			"type": "object"
+		}
+   },
+   "variables": {
+      "appInsights": [
+         {
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+            "name": "[parameters('resourceNames').primaryAppInsightsName]"
+            
+         },
+         {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+            "name": "[parameters('resourceNames').secondaryAppInsightsName]"
+         }
+      ]
+   },
+   "resources":[  
+      {
+         "name": "[variables('appInsights')[copyIndex()].name]",
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-10-01",
+         "copy": {
+            "name": "storageLoop",
+            "count": "[length(variables('appInsights'))]"
+         },
+         "resourceGroup": "[variables('appInsights')[copyIndex()].resourceGroupName]",
+         "properties": {
+            "mode": "Incremental",
+            "expressionEvaluationOptions": {
+               "scope": "inner"
+            },
+            "parameters": {
+               "location": {
+                  "value": "[variables('appInsights')[copyIndex()].location]"
+               },
+               "name": {
+                  "value": "[variables('appInsights')[copyIndex()].name]"
+               }
+            },
+            "template": {
+               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+               "contentVersion": "1.0.0.0",
+               "parameters": {
+                  "location": {
+                     "type": "string"
+                  },
+                  "name": {
+                     "type": "string"
+                  }
+               },
+               "resources": [
+                  {  
+                     "name":"[parameters('name')]",
+                     "type":"Microsoft.Insights/components",
+                     "apiVersion":"2020-02-02",
+                     "location":"[parameters('location')]",
+                     "properties":{  
+                        "applicationId":"[parameters('name')]"
+                     }
+                  }
+               ]
+            }
+         }
+      }
+   ]
+}

@@ -1,0 +1,377 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNames": {
+            "type": "object"
+        },
+        "tomorrow": {
+            "type": "string"
+        },
+        "_artifactsLocation": {
+            "type": "string"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "moduleUri": "[concat('https://devopsgallerystorage.blob.', environment().suffixes.storage, '/packages/')]",
+        "accounts": [
+                {
+                    "location": "[if(equals(parameters('resourceNames').primaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').primaryLocation)]",
+                    "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                    "automationAccountName": "[parameters('resourceNames').primaryAutomationAccountName]",
+                    "modules": "[variables('primarySite').modules]",
+                    "schedules": "[variables('primarySite').schedules]",
+                    "runbooks": "[variables('primarySite').runbooks]",
+                    "jobSchedules": "[variables('primarySite').jobSchedules]"
+                },
+                {
+                    "location": "[if(equals(parameters('resourceNames').secondaryLocation, 'eastus'), 'eastus2', parameters('resourceNames').secondaryLocation)]",
+                    "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+                    "automationAccountName": "[parameters('resourceNames').secondaryAutomationAccountName]",
+                    "variables": "[variables('secondarySite').variables]",
+                    "modules": "[variables('secondarySite').modules]",
+                    "runbooks": "[variables('secondarySite').runbooks]"
+                }
+            ],
+        "primarySite": {
+            "schedules": [
+                {
+                    "name": "StartVmsDailyMorning",
+                    "startTime": "[concat(parameters('tomorrow'), 'T07:00:00.000')]",
+                    "frequency": "Day",
+                    "interval": 1
+                },
+                {
+                    "name": "StopVmsDailyEvening",
+                    "startTime": "[concat(parameters('tomorrow'), 'T19:00:00.000')]",
+                    "frequency": "Day",
+                    "interval": 1
+                },
+                {
+                    "name": "Once",
+                    "startTime": "[concat(parameters('tomorrow'), 'T11:55:00.000')]",
+                    "frequency": "OneTime",
+                    "interval": 1
+                },
+                {
+                    "name": "DailyMidnight",
+                    "startTime": "[concat(parameters('tomorrow'), 'T23:55:00.000')]",
+                    "frequency": "Day",
+                    "interval": 1
+                },
+                {
+                    "name": "DailyNoon",
+                    "startTime": "[concat(parameters('tomorrow'), 'T11:55:00.000')]",
+                    "frequency": "Day",
+                    "interval": 1
+                }
+            ],
+            "runbooks": [
+                {
+                    "name": "StartAzureV2Vm",
+                    "sourceUrl": "https://raw.githubusercontent.com/azureautomation/start-azure-v2-vms/master/StartAzureV2Vm.graphrunbook",
+                    "runbookType": "GraphPowerShell"
+                },
+                {
+                    "name": "StopAzureV2Vm",
+                    "sourceUrl": "https://raw.githubusercontent.com/azureautomation/stop-azure-v2-vms/master/StopAzureV2Vm.graphrunbook",
+                    "runbookType": "GraphPowerShell"
+                },
+                {
+                    "name": "Update-AutomationAzureModulesForAccount",
+                    "sourceUrl": "https://raw.githubusercontent.com/microsoft/AzureAutomation-Account-Modules-Update/master/Update-AutomationAzureModulesForAccount.ps1",
+                    "runbookType": "PowerShell"
+                },
+                {
+                    "name": "Update-HostFile",
+                    "sourceUrl": "[concat(parameters('_artifactsLocation'), 'automation/runbooks/Update-HostFile.ps1', parameters('_artifactsLocationSasToken'))]",
+                    "runbookType": "PowerShell"
+                },
+                {
+                    "name": "Restore-HostFile",
+                    "sourceUrl": "[concat(parameters('_artifactsLocation'), 'automation/runbooks/Restore-HostFile.ps1', parameters('_artifactsLocationSasToken'))]",
+                    "runbookType": "PowerShell"
+                },
+                {
+                    "name": "Run-ScriptOnAzureVmWithRunCommand",
+                    "sourceUrl": "[concat(parameters('_artifactsLocation'), 'automation/runbooks/Run-ScriptOnAzureVmWithRunCommand.ps1', parameters('_artifactsLocationSasToken'))]",
+                    "runbookType": "PowerShell"
+                },
+                {
+                    "name": "UpdateManagement-PreScript",
+                    "sourceUrl": "[concat(parameters('_artifactsLocation'), 'automation/runbooks/UpdateMgmt-PreScript.ps1', parameters('_artifactsLocationSasToken'))]",
+                    "runbookType": "PowerShell"
+                }
+            ],
+            "jobSchedules": [
+                {
+                    "scheduleName": "StartVmsDailyMorning",
+                    "runbookName": "StartAzureV2Vm",
+                    "parameters": {
+                        "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+                        "vmName": "[parameters('resourceNames').jbox01VmName]"
+                    }
+                },
+                {
+                    "scheduleName": "StopVmsDailyEvening",
+                    "runbookName": "StopAzureV2Vm",
+                    "parameters": {
+                        "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+                        "vmName": "[parameters('resourceNames').jbox01VmName]"
+                    }
+                },
+                {
+                    "scheduleName": "Once",
+                    "runbookName": "Update-AutomationAzureModulesForAccount",
+                    "parameters": {
+                        "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                        "automationAccountName": "[parameters('resourceNames').primaryAutomationAccountName]"
+                    }
+                },
+                {
+                    "scheduleName": "DailyNoon",
+                    "runbookName": "Run-ScriptOnAzureVmWithRunCommand",
+                    "parameters": {
+                        "vmResourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                        "vmName": "[parameters('resourceNames').jbox00VmName]",
+                        "runbookName": "Update-HostFile"
+                    }
+                },
+                {
+                    "scheduleName": "DailyMidnight",
+                    "runbookName": "Run-ScriptOnAzureVmWithRunCommand",
+                    "parameters": {
+                        "vmResourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+                        "vmName": "[parameters('resourceNames').jbox00VmName]",
+                        "runbookName": "Restore-HostFile"
+                    }
+                }
+            ],
+            "modules": [
+                {
+                    "name": "Az.Accounts",
+                    "uri": "[concat(variables('moduleUri'), 'az.accounts.2.2.7.nupkg')]"
+                },
+                {
+                    "name": "Az.Automation",
+                    "uri": "[concat(variables('moduleUri'), 'az.automation.1.5.2.nupkg')]"
+                },
+                {
+                    "name": "Az.Compute",
+                    "uri": "[concat(variables('moduleUri'), 'az.compute.4.10.0.nupkg')]"
+                },
+                {
+                    "name": "Az.Resources",
+                    "uri": "[concat(variables('moduleUri'), 'az.resources.3.4.0.nupkg')]"
+                }
+            ]
+        },
+        "secondarySite": {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+            "automationAccountName": "[parameters('resourceNames').secondaryAutomationAccountName]",
+            "variables": [
+                {
+                    "name":"[concat(parameters('resourceNames').asrRecoveryPlanName, '-LB')]",
+                    "description": "Name of the load balancer",
+                    "value":"[parameters('resourceNames').beSecondaryNlbName]"
+                },
+                {
+                    "name":"[concat(parameters('resourceNames').asrRecoveryPlanName, '-LBRG')]",
+                    "description": "Name of the load balancer resource group",
+                    "value":"[parameters('resourceNames').secondaryRetailRGName]"
+                }
+            ],
+            "runbooks": [
+                {
+                    "name": "ASR-AddSingleLoadBalancer",
+                    "sourceUrl": "[concat(parameters('_artifactsLocation'), 'automation/runbooks/ASR-AddSingleLoadBalancer.ps1', parameters('_artifactsLocationSasToken'))]",
+                    "runbookType": "PowerShell"
+                }
+            ],
+            "modules": [
+                {
+                    "name": "Az.Accounts",
+                    "uri": "[concat(variables('moduleUri'), 'az.accounts.2.2.7.nupkg')]"
+                },
+                {
+                    "name": "Az.Network",
+                    "uri": "[concat(variables('moduleUri'), 'az.network.4.7.0.nupkg')]"
+                },
+                {
+                    "name": "Az.Profile",
+                    "uri": "[concat(variables('moduleUri'), 'az.profile.0.7.0.nupkg')]"
+                },            
+                {
+                    "name": "Az.Compute",
+                    "uri": "[concat(variables('moduleUri'), 'az.compute.4.10.0.nupkg')]"
+                },
+                {
+                    "name": "Az.Resources",
+                    "uri": "[concat(variables('moduleUri'), 'az.resources.3.4.0.nupkg')]"
+                }
+            ]
+        }
+    },
+    "resources": [
+        {
+            "name": "[concat(variables('accounts')[copyIndex()].automationAccountName, '_runbooks')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "copy": {
+                "name": "accountLoop",
+                "count": "[length(variables('accounts'))]"
+            },
+            "resourceGroup": "[variables('accounts')[copyIndex()].resourceGroupName]",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[variables('accounts')[copyIndex()].location]"
+                    },
+                    "automationAccountName": {
+                        "value": "[variables('accounts')[copyIndex()].automationAccountName]"
+                    },
+                    "secureObject": {
+                        "value": {
+                            "variables": "[if(contains(variables('accounts')[copyIndex()], 'variables'), variables('accounts')[copyIndex()].variables, json('[]'))]",
+                            "modules": "[if(contains(variables('accounts')[copyIndex()], 'modules'), variables('accounts')[copyIndex()].modules, json('[]'))]",
+                            "schedules": "[if(contains(variables('accounts')[copyIndex()], 'schedules'), variables('accounts')[copyIndex()].schedules, json('[]'))]",
+                            "runbooks": "[if(contains(variables('accounts')[copyIndex()], 'runbooks'), variables('accounts')[copyIndex()].runbooks, json('[]'))]",
+                            "jobSchedules": "[if(contains(variables('accounts')[copyIndex()], 'jobSchedules'), variables('accounts')[copyIndex()].jobSchedules, json('[]'))]"
+                        }
+                    },
+                    "tags": {
+                        "value": {}
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "location": {
+                            "type": "string"
+                        },
+                        "automationAccountName": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object"
+                        },
+                        "secureObject": {
+                            "type": "secureObject"
+                        },
+                        "guid": {
+                            "type": "string",
+                            "defaultValue": "[newGuid()]"
+                        }
+                    },
+                    "variables": {
+                        "variables": "[parameters('secureObject').variables]",
+                        "modules": "[parameters('secureObject').modules]",
+                        "schedules": "[parameters('secureObject').schedules]",
+                        "runbooks": "[parameters('secureObject').runbooks]",
+                        "jobSchedules": "[parameters('secureObject').jobSchedules]"
+                    },
+                    "resources": [
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', if(empty(variables('variables')), '__blank__', variables('variables')[copyIndex()].name))]",
+                            "type": "microsoft.automation/automationAccounts/variables",
+                            "apiVersion": "2019-06-01",
+                            "copy":{
+                                "name": "variablesLoop",
+                                "count": "[length(variables('variables'))]"
+                            },
+                            "properties": {
+                                "description": "[if(contains(variables('variables')[copyIndex()], 'description'), variables('variables')[copyIndex()].description, json('null'))]",
+                                "isEncrypted": "[if(contains(variables('variables')[copyIndex()], 'isEncrypted'), variables('variables')[copyIndex()].isEncrypted, false())]",
+                                "value": "[concat('\"', variables('variables')[copyIndex()].value, '\"')]"
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', if(empty(variables('modules')), '__blank__', variables('modules')[copyIndex()].name))]",
+                            "type": "Microsoft.Automation/automationAccounts/modules",
+                            "apiVersion": "2019-06-01",
+                            "tags": "[parameters('tags')]",
+                            "copy": {
+                                "name": "modulesLoop",
+                                "count": "[length(variables('modules'))]",
+                                "mode": "serial"
+                            },
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "contentLink": {
+                                    "uri": "[variables('modules')[copyIndex()].uri]"
+                                }
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', if(empty(variables('schedules')), '__blank__', variables('schedules')[copyIndex()].name))]",
+                            "type": "Microsoft.Automation/automationAccounts/schedules",
+                           // "condition": "[not(empty(parameters('secureObject').schedules))]",
+                            "apiVersion": "2019-06-01",
+                            "copy": {
+                                "name": "scheduleLoop",
+                                "count": "[length(variables('schedules'))]"
+                            },
+                            "properties": {
+                                "startTime": "[variables('schedules')[copyIndex()].startTime]",
+                                "frequency": "[variables('schedules')[copyIndex()].frequency]",
+                                "interval": "[variables('schedules')[copyIndex()].interval]"
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', if(empty(variables('runbooks')), '__blank__', variables('runbooks')[copyIndex()].name))]",
+                            "type": "Microsoft.Automation/automationAccounts/runbooks",
+                            "apiVersion": "2019-06-01",
+                            "copy": {
+                                "name": "runbooksLoop",
+                                "count": "[length(variables('runbooks'))]"
+                            },
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "runbookType": "[variables('runbooks')[copyIndex()].runbookType]",
+                                "publishContentLink": {
+                                    "uri": "[variables('runbooks')[copyIndex()].sourceUrl]"
+                                }
+                            }
+                        },
+                        {
+                            "name": "[concat(parameters('automationAccountName'), '/', guid(parameters('guid'), string(copyIndex())))]",
+                            "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+                            "apiVersion": "2019-06-01",
+                            "dependsOn": [
+                                "scheduleLoop",
+                                "runbooksLoop"
+                            ],
+                            "copy": {
+                                "name": "jobScheduleLoop",
+                                "count": "[length(variables('jobSchedules'))]"
+                            },
+                            "properties": {
+                                "schedule": {
+                                    "name": "[variables('jobSchedules')[copyIndex()].scheduleName]"
+                                },
+                                "runbook": {
+                                    "name": "[variables('jobSchedules')[copyIndex()].runbookName]"
+                                },
+                                "parameters": "[variables('jobSchedules')[copyIndex()].parameters]"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

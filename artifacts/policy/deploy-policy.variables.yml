@@ -1,0 +1,38 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+variables:
+- name: FabrikamRGName
+  value: $(prefix)-FabrikamRG$(suffix)
+- name: exemptions
+  value: '[
+    {
+      "displayName": "Exempt Log Analytics workspace from Azure Diagnostics Policy initiative",
+      "deploymentScope": "resourceGroups/$(workspaceRGName)",
+      "resourceScope": "Microsoft.OperationalInsights/workspaces/$(workspaceName)",
+      "assignmentName": "Azure Diagnostics Policy Initiative for a Log Analytics Workspace",
+      "policies": [
+          "Apply Diagnostic Settings for Microsoft.OperationalInsights/workspaces to a Log Analytics Workspace"
+      ]
+    },
+    {
+      "displayName": "Exempt Fabrikam Application Insights from Azure Diagnostics Policy initiative",
+      "deploymentScope": "resourceGroups/$(FabrikamRGName)",
+      "resourceScope": "",
+      "assignmentName": "Azure Diagnostics Policy Initiative for a Log Analytics Workspace",
+      "policies": [
+          "Apply Diagnostic Settings for Microsoft.Insights/components (web) to a Log Analytics Workspace"
+      ]
+    },
+    {
+      "displayName": "Exempt unsupported resources from Azure Diagnostics Policy initiative",
+      "deploymentScope": "",
+      "resourceScope": "",
+      "assignmentName": "Azure Diagnostics Policy Initiative for a Log Analytics Workspace",
+      "policies": [
+          "Apply Diagnostic Settings for Microsoft.Compute/disks to a Log Analytics Workspace",
+          "Apply Diagnostic Settings for Microsoft.Web/connections (V1) to a Log Analytics Workspace",
+          "Apply Diagnostic Settings for Microsoft.AVS/privateClouds to a Log Analytics Workspace"
+      ]
+    }
+  ]'

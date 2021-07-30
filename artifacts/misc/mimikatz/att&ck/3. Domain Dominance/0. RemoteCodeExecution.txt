@@ -1,0 +1,9 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: add InsertedUser to domain
+wmic /node:contosodc process call create "net user /add InsertedUser <password>"
+pause
+:: add them to Admins group via PsExec
+c:\tools\SysinternalsSuite\PsExec.exe \\contosodc -accepteula net localgroup "Administrators" InsertedUser /add
+pause

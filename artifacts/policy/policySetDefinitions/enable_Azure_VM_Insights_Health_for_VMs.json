@@ -1,0 +1,78 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema":  "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+    "contentVersion":  "1.0.0.0",
+    "parameters":  {},
+    "resources":  [
+        {
+            "type":  "Microsoft.Authorization/policySetDefinitions",
+            "apiVersion":  "2020-03-01",
+            "name":  "6ec48d46-433c-4278-9929-4bad7c942163",
+            "properties":  {
+                "displayName":  "Enable Azure VM Insights Health for VMs",
+                "description":  "Enable Azure VM Insights Health for the virtual machines (VMs) in the specified scope (management group, subscription or resource group). Takes Log Analytics workspace as parameter.",
+                "metadata":  {
+                    "category":  "Monitoring"
+                },
+                "parameters":  {
+                    "logAnalytics":  {
+                        "type":  "string",
+                        "metadata":  {
+                            "displayName":  "logAnalytics",
+                            "description":  "The target Log Analytics Workspace for Azure Diagnostics",
+                            "strongType":  "omsWorkspace"
+                        }
+                    },
+                    "HealthDataCollectionRuleName": {
+                        "type": "string",
+                        "defaultValue": "Microsoft-VMInsights-Health"
+                    }
+                },
+                "policyDefinitions":  [
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', 'dedc752b-b26f-5210-bd03-33a0abd7c3f5')]",
+                        "parameters":  {
+                            "logAnalytics":  {
+                                "value":  "[[parameters('logAnalytics')]"
+                            },
+                            "HealthDataCollectionRuleName": {
+                                "value": "[[parameters('HealthDataCollectionRuleName')]"
+                            }
+                        }
+                    },
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', '5f911d75-94eb-485a-ab86-35e393320c44')]",
+                        "parameters":  {
+                            "logAnalytics":  {
+                                "value":  "[[parameters('logAnalytics')]"
+                            },
+                            "HealthDataCollectionRuleName": {
+                                "value": "[[parameters('HealthDataCollectionRuleName')]"
+                            }
+                        }
+                    },
+                    {
+                        "policyDefinitionId":  "[tenantResourceId('Microsoft.Authorization/policyDefinitions', '3cf2ab00-13f1-4d0c-8971-2ac904541a7e')]"
+                    },
+                    {
+                        "policyDefinitionId":  "[tenantResourceId('Microsoft.Authorization/policyDefinitions', '497dff13-db2a-4c0f-8603-28fa3b331ab6')]"
+                    },
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', '07d84b0e-bbb4-4209-bc57-7e016d933664')]"
+                    },
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', '4392c625-a3d7-4f19-9e8d-ec75df87c118')]"
+                    },
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', 'f8679603-56dc-4e9a-aa77-d87df1992eaa')]"
+                    },
+                    {
+                        "policyDefinitionId":  "[resourceId('Microsoft.Authorization/policyDefinitions/', '449e8ef4-f6cf-47bf-acfd-d713b23adaed')]"
+                    }
+                ]
+            }
+        }
+    ]
+}

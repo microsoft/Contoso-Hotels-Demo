@@ -1,0 +1,74 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmObject":{
+      "type": "object"
+    },
+    "osDiskOnly":{
+      "type":"bool",
+      "defaultValue": false
+    },
+    "primaryStagingAzureStorageAccountId":{
+      "type": "string"
+    },
+    "recoveryResourceGroupId":{
+      "type": "string"
+    }
+  },
+  "variables": {
+    "osDiskObject":{
+      "diskResourceId":"[parameters('vmObject').storageProfile.osDisk.managedDisk.id]",
+      "diskAccountType":"[parameters('vmObject').storageProfile.osDisk.managedDisk.storageAccountType]"
+    },
+    "managedDataDisksDefault":[
+      {
+        "managedDisk":{
+          "id":"placeholder",
+          "storageAccountType":"placeholder"
+        }
+      }
+    ],
+    "srcManagedDataDisksCount":"[length(parameters('vmObject').storageProfile.dataDisks)]",
+    "managedDisksCount":"[if(equals(variables('srcManagedDataDisksCount'), 0), 1, variables('srcManagedDataDisksCount'))]",
+    "targetManagedDataDisks":"[if(equals(variables('srcManagedDataDisksCount'), 0), variables('managedDataDisksDefault'), parameters('vmObject').storageProfile.dataDisks)]",
+    "copy":[
+      {
+        "name": "managedDataDisks",
+        "count": "[variables('managedDisksCount')]",
+        "input": {
+          "diskResourceId":"[variables('targetManagedDataDisks')[copyIndex('managedDataDisks')].managedDisk.id]",
+          "diskAccountType":"[variables('targetManagedDataDisks')[copyIndex('managedDataDisks')].managedDisk.storageAccountType]"
+        }
+      },
+      {
+        "name": "managedDisksAsr",
+        "count": "[length(variables('managedDisks'))]",
+        "input": {
+          "diskId": "[variables('managedDisks')[copyIndex('managedDisksAsr')].diskResourceId]",
+          "primaryStagingAzureStorageAccountId": "[parameters('primaryStagingAzureStorageAccountId')]",
+          "recoveryResourceGroupId": "[parameters('recoveryResourceGroupId')]",
+          "recoveryReplicaDiskAccountType": "[variables('managedDisks')[copyIndex('managedDisksAsr')].diskAccountType]",
+          "recoveryTargetDiskAccountType": "[variables('managedDisks')[copyIndex('managedDisksAsr')].diskAccountType]"
+        }
+      }
+    ],
+    "managedDisksTmp":["[variables('osDiskObject')]"],
+    "managedDisks":"[if(and(not(parameters('osDiskOnly')), greater(variables('srcManagedDataDisksCount'),0)), union(variables('managedDisksTmp'), variables('managedDataDisks')), variables('managedDisksTmp'))]"
+  },
+  "resources": [
+  ],
+  "outputs": {
+    "managedDisks":{
+      "type":"array",
+      "value":"[variables('managedDisks')]"
+    },
+    "managedDisksAsr":{
+      "type":"array",
+      "value":"[variables('managedDisksAsr')]"
+    }
+  }
+}

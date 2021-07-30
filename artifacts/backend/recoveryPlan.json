@@ -1,0 +1,86 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+		"resourceNames": {
+			"type": "object"
+		}
+    },
+    "functions": [],
+    "variables": {
+        "vmNames": [
+            "[parameters('resourceNames').be00VmName]",
+            "[parameters('resourceNames').be01VmName]"
+        ],
+
+        "vaultName": "[parameters('resourceNames').secondaryRecoveryVaultName]",
+        "recoveryPlanName": "[parameters('resourceNames').asrRecoveryPlanName]",
+        "runbookResourceId": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Automation/automationAccounts/runbooks', parameters('resourceNames').secondaryAutomationAccountName, 'ASR-AddSingleLoadBalancer')]",
+
+        "sourceLocation": "[parameters('resourceNames').primaryLocation]",
+        "targetLocation": "[parameters('resourceNames').secondaryLocation]",
+        "sourceFabricName": "[concat('asr-a2a-default-', variables('sourceLocation'))]",
+        "targetFabricName": "[concat('asr-a2a-default-', variables('targetLocation'))]",
+        "sourceContainerName": "[concat('asr-a2a-default-', variables('sourceLocation'), '-container')]",
+        "sourceFabricResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics', variables('vaultName'), variables('sourceFabricName'))]",
+        "targetFabricResourceId":"[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics', variables('vaultName'), variables('targetFabricName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.RecoveryServices/vaults/replicationRecoveryPlans",
+            "name": "[concat(variables('vaultName'), '/' , variables('recoveryPlanName'))]",
+            "apiVersion":"2018-01-10",
+            "properties": {
+                "primaryFabricId": "[variables('sourceFabricResourceId')]",
+                "recoveryFabricId": "[variables('targetFabricResourceId')]",
+                "failoverDeploymentModel": "ResourceManager",
+                "replicationProviders": [
+                    "HyperVReplicaAzure"
+                ],
+                "allowedOperations": [
+                    "PlannedFailover",
+                    "UnplannedFailover",
+                    "TestFailover"
+                ],
+                "groups": [
+                    {
+                        "groupType": "Boot",
+                        "copy":[
+                            {
+                                "name": "replicationProtectedItems",
+                                "count": "[length(variables('vmNames'))]",
+                                "input": {
+                                    "id": "[resourceId('Microsoft.RecoveryServices/vaults/replicationFabrics/replicationProtectionContainers/replicationProtectedItems', variables('vaultName'), variables('sourceFabricName'), variables('sourceContainerName'), guid(variables('vmNames')[copyIndex('replicationProtectedItems')]))]"
+                                }
+                            }
+                        ],
+                        "endGroupActions": [
+                            {
+                                "actionName": "JoinLoadBalancer",
+                                "failoverTypes": [
+                                    "PlannedFailover",
+                                    "UnplannedFailover",
+                                    "TestFailover"
+                                ],
+                                "failoverDirections": [
+                                    "PrimaryToRecovery"
+                                ],
+                                "customDetails": {
+                                    "instanceType": "AutomationRunbookActionDetails",
+                                    "runbookId": "[variables('runbookResourceId')]",
+                                    "fabricLocation": "Recovery",
+                                    "CanWrite": false,
+                                    "CanRead": true
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs": {}
+}

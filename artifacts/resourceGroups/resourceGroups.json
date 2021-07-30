@@ -1,0 +1,100 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.1",
+   "parameters": {
+      "resourceNames": {
+         "type": "object"
+      },
+      "tags": {
+         "type": "object"
+      }
+   },
+   "variables": {
+      "sites": {
+         "primary": {
+            "location": "[parameters('resourceNames').primaryLocation]",
+            "Infra": {
+               "resourceGroupName": "[parameters('resourceNames').primaryInfraRGName]",
+               "tags": "[parameters('tags').primaryInfra]"
+            },
+            "Ops": {
+               "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]",
+               "tags": "[parameters('tags').primaryOps]"
+            },
+            "Retail": {
+               "resourceGroupName": "[parameters('resourceNames').primaryRetailRGName]",
+               "tags": "[parameters('tags').primaryRetail]"
+            }
+         },
+         "secondary": {
+            "location": "[parameters('resourceNames').secondaryLocation]",
+            "Infra": {
+               "resourceGroupName": "[parameters('resourceNames').secondaryInfraRGName]",
+               "tags": "[parameters('tags').primaryInfra]"
+            },
+            "Ops": {
+               "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]",
+               "tags": "[parameters('tags').primaryOps]"
+            },
+            "Retail": {
+               "resourceGroupName": "[parameters('resourceNames').secondaryRetailRGName]",
+               "tags": "[parameters('tags').primaryRetail]"
+            }
+         }
+      }
+   },
+   "resources": [
+      {
+         "name": "[parameters('resourceNames').stagingRGName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[parameters('resourceNames').primaryLocation]",
+         "tags": "[parameters('tags').staging]"
+      },
+      {
+         "name": "[variables('sites').primary.Infra.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').primary.location]",
+         "tags": "[variables('sites').primary.Infra.tags]"
+      },
+      {
+         "name": "[variables('sites').primary.Ops.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').primary.location]",
+         "tags": "[variables('sites').primary.Ops.tags]"
+      },
+      {
+         "name": "[variables('sites').primary.Retail.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').primary.location]",
+         "tags": "[variables('sites').primary.Retail.tags]"
+      },
+      {
+         "name": "[variables('sites').secondary.Infra.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').secondary.location]",
+         "tags": "[variables('sites').secondary.Infra.tags]"
+      },
+      {
+         "name": "[variables('sites').secondary.Ops.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').secondary.location]",
+         "tags": "[variables('sites').secondary.Ops.tags]"
+      },
+      {
+         "name": "[variables('sites').secondary.Retail.resourceGroupName]",
+         "type": "Microsoft.Resources/resourceGroups",
+         "apiVersion": "2020-10-01",
+         "location": "[variables('sites').secondary.location]",
+         "tags": "[variables('sites').secondary.Retail.tags]"
+      }
+   ]
+}

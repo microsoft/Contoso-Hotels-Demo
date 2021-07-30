@@ -1,0 +1,88 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{  
+   "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion":"1.0.0.0",
+   "parameters":{  
+      "resourceNames": {
+         "type": "object"
+      }
+   },
+   "variables":{
+		"virtualMachines": [
+         {
+  				"location": "[parameters('resourceNames').primaryLocation]",
+            "vmName": "[parameters('resourceNames').jbox00VmName]",
+            "resourceGroupName": "[parameters('resourceNames').primaryOpsRGName]"
+         },
+         {
+  				"location": "[parameters('resourceNames').secondaryLocation]",
+            "vmName": "[parameters('resourceNames').jbox01VmName]",
+            "resourceGroupName": "[parameters('resourceNames').secondaryOpsRGName]"
+         }
+      ]
+   },
+   "resources":[
+      {
+
+			"name": "[concat('Enable_JIT_for_', variables('virtualMachines')[copyIndex()].vmName)]",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2020-10-01",
+			"copy": {
+				"name": "vmLoop",
+				"count": "[length(variables('virtualMachines'))]"
+			},
+			"resourceGroup": "[variables('virtualMachines')[copyIndex()].resourceGroupName]",
+			"properties": {
+				"mode": "Incremental",
+				"expressionEvaluationOptions": {
+				   "scope": "inner"
+				},
+				"parameters": {
+					"location": {
+						"value": "[variables('virtualMachines')[copyIndex()].location]"
+					},
+               "vmName": {
+                   "value": "[variables('virtualMachines')[copyIndex()].vmName]"
+               }
+            },
+				"template": {
+					"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+					"contentVersion": "1.0.0.0",
+					"parameters": {
+						"location": {
+							"type": "string"
+						},
+                  "vmName": {
+                     "type": "string"
+                  }
+               },
+               "resources": [
+                  {
+                     "type": "Microsoft.Security/locations/jitNetworkAccessPolicies",
+                     "apiVersion": "2020-01-01",
+                     "name": "[concat(parameters('location'), '/default')]",
+                     "kind": "Basic",
+                     "properties":{  
+                        "virtualMachines": [  
+                           {
+                              "id": "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]",
+                              "ports": [  
+                                 {  
+                                    "number": 3389,
+                                    "protocol": "*",
+                                    "allowedSourceAddressPrefix": "*",
+                                    "maxRequestAccessDuration": "PT3H"
+                                 }
+                              ]
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+         }
+      }
+   ]
+}

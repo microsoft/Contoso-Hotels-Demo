@@ -1,0 +1,26 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "lowCpuThreshold": {
+            "type": "string",
+            "defaultValue": "20"
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "default",
+            "type": "Microsoft.Advisor/configurations",
+            "apiVersion": "2020-01-01",
+            "properties": {
+                "lowCpuThreshold": "[parameters('lowCpuThreshold')]"
+            }
+        }
+    ],
+    "outputs": {}
+}

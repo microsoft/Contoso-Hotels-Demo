@@ -1,0 +1,59 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "principalId": {
+            "type": "string"
+        },
+        "roleDefinitionId": {
+            "type": "string"
+        },
+        "principalType": {
+            "type": "string",
+            "defaultValue": "ServicePrincipal"
+        },
+        "canDelegate": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "scope": {
+            "type": "string",
+            "defaultValue": "[subscription().id]"
+        },
+        "description": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "condition": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "conditionVersion": {
+            "type": "string",
+            "defaultValue": ""
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+		{
+			"type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2020-04-01-preview",
+			"name": "[guid(subscription().id, parameters('principalId'), parameters('roleDefinitionId'))]",
+			"properties": {
+				"roleDefinitionId": "[resourceId('Microsoft.Authorization/roleAssignments', parameters('roleDefinitionId'))]",
+				"principalId": "[parameters('principalId')]",
+				"principalType": "[parameters('principalType')]",
+                "canDelegate": "[parameters('canDelegate')]",
+                "scope": "[parameters('scope')]",
+                "description": "[parameters('description')]",
+                "condition": "[if(empty(parameters('condition')), json('null'), parameters('condition'))]",
+                "conditionVersion": "[if(empty(parameters('conditionVersion')), json('null'), parameters('condition'))]"
+			}
+		}        
+    ],
+    "outputs": {}
+}

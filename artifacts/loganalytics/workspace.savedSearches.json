@@ -1,0 +1,265 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceName": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "savedSearches": [
+            {
+                "category": "VM Monitoring",
+                "displayName": "Last Reboot",
+                "query": "let Today = now();
+VMComputer
+| extend DaysSinceBoot = Today - BootTime
+| summarize by Computer, DaysSinceBoot, BootTime
+| sort by BootTime asc"
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "Summary of Azure VMs monitored by VM Insights",
+                "query": "VMComputer
+| where AzureLocation != \"\" 
+| summarize by Computer, AzureImageOffering, AzureLocation, AzureImageSku"
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "List all versions of curl in use",
+                "query": "VMProcess
+| where ExecutableName == \"curl\"
+| distinct ProductVersion"
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "Bytes sent and received trends",
+                "query": "VMConnection
+| summarize sum(BytesSent), sum(BytesReceived) by bin(TimeGenerated,1hr), Computer
+| order by Computer desc
+| render timechart"
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "Which Azure VMs are transmitting the most data",
+                "query": "VMConnection
+| join kind=fullouter(VMComputer) on $left.Computer == $right.Computer
+| summarize count(BytesSent) by Computer, AzureSize
+| sort by count_BytesSent desc"
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "Number of ports open across machines",
+                "query": "VMBoundPort
+| where Ip != \"127.0.0.1\"
+| summarize by Computer, Machine, Port, Protocol
+| summarize OpenPorts=count() by Computer, Machine
+| order by OpenPorts desc",
+            },
+            {
+                "category": "VM Monitoring",
+                "displayName": "Score processes by number of ports open",
+                "query": "VMBoundPort
+| where Ip != \"127.0.0.1\"
+| summarize by ProcessName, Port, Protocol
+| summarize OpenPorts=count() by ProcessName
+| order by OpenPorts desc"
+            },
+            {
+                "category": "Security Demo",
+                "displayName": "Security Anomalies",
+                "query": "//Detect anomalies in Successful Logins over last week
+SecurityEvent
+| where TimeGenerated > ago(7d)
+| where EventID == 4624
+//Successful Login
+| make-series count() default=0 on TimeGenerated in range(ago(7d), now(), 1h)
+| extend (flag,score,baseline) = series_decompose_anomalies(count_)
+| render timechart
+
+//Emphasize anomaly outliers
+SecurityEvent
+| where TimeGenerated > ago(7d)
+| where EventID == 4624
+| make-series count() default=0 on TimeGenerated in range(ago(7d), now(), 1h)
+| extend outliers = series_decompose_anomalies(count_)
+| extend outliers_emphasized = series_multiply(outliers, 1000)
+| render timechart
+
+// Picking out individual machines with anomalies
+SecurityEvent
+| where TimeGenerated > ago(7d)
+| where EventID == 4624
+| make-series count() default=0 on TimeGenerated in range(ago(7d), now(), 1h) by Computer
+| extend outliers = series_decompose_anomalies(count_)
+| where toint(series_stats_dynamic(outliers).max) >= 1 or toint(series_stats_dynamic(outliers).min) <= -1
+
+//Get accounts that suddenly log on to more distinct machines than usual and perform admin detection
+let baseData = materialize(SecurityEvent
+| where EventID == 4624
+| where AccountType == \"User\"
+| make-series dcount(Computer) default=0 on TimeGenerated in range(ago(7d), now(), 1d) by Account);
+let AnomAccounts = (baseData
+| extend outliers = series_outliers(dcount_Computer)
+| mvexpand dcount_Computer, TimeGenerated, outliers to typeof(double)
+| top 25 by outliers desc
+| project  Account);
+let AccountAvg = (baseData
+| extend avg = todouble(series_stats_dynamic(dcount_Computer).avg ));
+let myDAs = toscalar(SecurityEvent
+| where EventID in (4672, 576)
+| summarize makeset(Account));
+SecurityEvent
+| where EventID  == 4624
+| where Account in (AnomAccounts)
+| extend IsAdmin = iff(Account in (myDAs), \"yes\", \"no\")
+| summarize CompCount = dcount(Computer) by Account, IsAdmin
+| join kind=leftouter
+(
+    AccountAvg
+)
+on Account
+| project-away Account1, dcount_Computer, TimeGenerated"
+            },
+            {
+                "category": "Security Demo",
+                "displayName": "Security Events",
+                "query": "//List security events and parse their activity IDs
+SecurityEvent
+| project Activity
+| parse Activity with activityID \" - \" activityDesc
+| take 100
+
+//Security detections
+SecurityDetection
+| summarize count() by AlertTitle, Computer
+
+//Find which accounts successfully logged in on computers where we identify a security detection
+let detections = toscalar(SecurityDetection
+| summarize makeset(Computer));
+SecurityEvent
+| where Computer in (detections) and EventID == 4624
+//Successful Login
+| summarize count() by Account
+
+//Filter the accounts that have had successful login attempts from more than 1 IP. Enumerate these IPs:
+let detections = toscalar(SecurityDetection
+| summarize makeset(Computer));
+SecurityEvent
+| where AccountType == \"User\" and Computer in (detections) and EventID == 4624 and TimeGenerated > ago(30d)
+| summarize IPCount = dcount(IpAddress), makeset(IpAddress)  by Account
+| where IPCount > 1
+| sort by IPCount desc"
+            },
+            {
+                "category": "Update Management Demo",
+                "displayName": "Missing Updates",
+                "query": "//Computers Missing Updates last week and still missing it.
+let lastDayComputersMissingUpdates = Update
+| where TimeGenerated between (ago(7d)..ago(6d))
+| where  UpdateState != \"Not needed\" and UpdateState != \"NotNeeded\"
+| summarize makeset(Computer);
+Update
+| where TimeGenerated > ago(1d)
+| where  UpdateState != \"Not needed\" and UpdateState != \"NotNeeded\"
+| where Computer in (lastDayComputersMissingUpdates)
+| summarize UniqueUpdatesCount = dcount(Product) by Computer, OSType
+
+//Search the distinct updates missing across computers
+search in (Update) UpdateState == \"Needed\" and Optional == \"false\"
+| distinct Title"
+            },
+            {
+                "category": "ML Queries",
+                "displayName": "Anomaly Detection & Forecasting",
+                "query": "//Detecting anomalies in Weekly seasonality
+let ts=range t from 1 to 24*7*5 step 1
+| extend Timestamp = datetime(2018-03-01 05:00) + 1h * t
+| extend y = 2*rand() + iff((t/24)%7>=5, 10.0, 15.0) - (((t%24)/10)*((t%24)/10))
+// generate a series with weekly seasonality
+| extend y=iff(t==150 or t==200 or t==780, y-8.0, y)
+// add some dip outliers
+| extend y=iff(t==300 or t==400 or t==600, y+8.0, y)
+// add some spike outliers
+| summarize Timestamp=make_list(Timestamp, 10000),y=make_list(y, 10000);
+ts
+| extend series_decompose_anomalies(y)
+| render timechart
+
+//Detecting anomalies in Weekly seasonality with trend (notice false positives)
+let ts=range t from 1 to 24*7*5 step 1
+| extend Timestamp = datetime(2018-03-01 05:00) + 1h * t
+| extend y = 2*rand() + iff((t/24)%7>=5, 5.0, 15.0) - (((t%24)/10)*((t%24)/10)) + t/72.0
+// generate a series with weekly seasonality and ongoing trend
+| extend y=iff(t==150 or t==200 or t==780, y-8.0, y)
+// add some dip outliers
+| extend y=iff(t==300 or t==400 or t==600, y+8.0, y)
+// add some spike outliers
+| summarize Timestamp=make_list(Timestamp, 10000),y=make_list(y, 10000);
+ts
+| extend series_decompose_anomalies(y, 1.5, -1, 'linefit')
+| extend series_decompose_anomalies_y_ad_flag =   series_multiply(10, series_decompose_anomalies_y_ad_flag)
+// multiply by 10 for visualization purposes
+| render timechart
+
+//Tweaking the anomaly detection threshold
+let ts=range t from 1 to 24*7*5 step 1
+| extend Timestamp = datetime(2018-03-01 05:00) + 1h * t
+| extend y = 2*rand() + iff((t/24)%7>=5, 5.0, 15.0) - (((t%24)/10)*((t%24)/10)) + t/72.0
+// generate a series with weekly seasonality and onlgoing trend
+| extend y=iff(t==150 or t==200 or t==780, y-8.0, y)
+// add some dip outliers
+| extend y=iff(t==300 or t==400 or t==600, y+8.0, y)
+// add some spike outliers
+| summarize Timestamp=make_list(Timestamp, 10000),y=make_list(y, 10000);
+ts
+| extend series_decompose_anomalies(y, 2.5, -1, 'linefit')
+| extend series_decompose_anomalies_y_ad_flag =   series_multiply(10, series_decompose_anomalies_y_ad_flag)
+// multiply by 10 for visualization purposes
+| render timechart
+
+//Time Series Forecasting
+let ts=range t from 1 to 24*7*4 step 1
+// generate 4 weeks of hourly data
+| extend Timestamp = datetime(2018-03-01 05:00) + 1h * t
+| extend y = 2*rand() + iff((t/24)%7>=5, 5.0, 15.0) - (((t%24)/10)*((t%24)/10)) + t/72.0
+// generate a series with weekly seasonality and ongoing trend
+| extend y=iff(t==150 or t==200 or t==780, y-8.0, y)
+// add some dip outliers
+| extend y=iff(t==300 or t==400 or t==600, y+8.0, y)
+// add some spike outliers
+| make-series y=max(y) on Timestamp in range(datetime(2018-03-01 05:00), datetime(2018-03-01 05:00)+24*7*5h, 1h);
+// create a time series of 5 weeks (last week is empty)
+ts
+| extend y_forcasted = series_decompose_forecast(y, 24*7)
+// forecast a week forward
+| render timechart"
+            }
+        ]
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+            "name": "[concat(parameters('workspaceName'), '/',  guid(resourceGroup().id, parameters('workspaceName'), 
+                if(empty(variables('savedSearches')), '__blank__', variables('savedSearches')[copyIndex()].category), 
+                if(empty(variables('savedSearches')), '__blank__', variables('savedSearches')[copyIndex()].displayName)))]",
+            "apiVersion": "2020-08-01",
+            "copy": {
+                "name": "savedSearchLoop",
+                "count": "[length(variables('savedSearches'))]"
+            },
+            "properties": {
+                "etag": "*",
+                "category": "[variables('savedSearches')[copyIndex()].category]",
+                "displayName": "[variables('savedSearches')[copyIndex()].displayName]",
+                "query": "[variables('savedSearches')[copyIndex()].query]",
+                "version": 2,
+                "tags": "[if(contains(variables('savedSearches')[copyIndex()], 'tags'), variables('savedSearches')[copyIndex()].tags, json('[]'))]"
+            }
+        }
+    ],
+    "outputs": {}
+ }

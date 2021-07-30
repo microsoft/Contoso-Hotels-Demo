@@ -1,0 +1,58 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceResourceId": {
+            "type": "string"
+        },
+        "scope": {
+            "type": "string",
+            "defaultValue": "[subscription().id]"
+        },
+        "services": {
+            "type": "array",
+            "defaultValue": [
+                "VirtualMachines",
+                "AppServices",
+                "SqlServers",
+                "SqlServerVirtualMachines",
+                "StorageAccounts",
+                "KubernetesService",
+                "ContainerRegistry",
+                "KeyVaults",
+                "Arm",
+                "Dns"
+            ]
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Security/pricings",
+            "apiVersion": "2018-06-01",
+            "name": "[parameters('services')[copyIndex()]]",
+            "copy": {
+                "name": "serviceLoop",
+                "count": "[length(parameters('services'))]",
+                "mode": "Serial"
+            },
+            "properties": {
+                "pricingTier": "Standard"
+            }
+        },
+        {
+            "name": "default",
+            "type": "Microsoft.Security/workspaceSettings",
+            "apiVersion": "2019-01-01",
+            "properties": {
+                "workspaceId": "[parameters('workspaceResourceId')]",
+                "scope": "[parameters('scope')]"
+            }
+        }
+    ],
+    "outputs": {}
+}

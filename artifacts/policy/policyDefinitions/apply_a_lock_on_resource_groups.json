@@ -1,0 +1,112 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "displayName": {
+      "type": "string",
+      "defaultValue": "Apply a lock on resource groups"
+    },
+    "policyName": {
+      "type": "string",
+      "defaultValue": "db1ee89a-e89b-5092-a475-ac287b834ce2"
+    }    
+  },
+  "functions": [],
+  "variables": {
+    "name": "[parameters('policyName')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/policyDefinitions",
+      "apiVersion": "2019-09-01",
+      "name": "[variables('name')]",
+      "properties": {
+        "displayName": "[parameters('displayName')]",
+        "policyType": "Custom",
+        "mode": "All",
+        "description": "Apply a lock to resource groups.",
+        "metadata": {
+          "version": "1.0.0",
+          "category": "Locks"
+        },
+        "parameters": {
+          "resourceGroupPrefix": {
+            "type": "string",
+            "defaultValue": ""
+          },
+          "lockLevel": {
+            "type": "string",
+            "defaultValue": "CanNotDelete"
+          }
+        },
+        "policyRule": {
+          "if": {
+              "allOf": [
+                {
+                  "field": "type",
+                  "equals": "Microsoft.Resources/subscriptions/resourceGroups"
+                },
+                {
+                  "field": "name",
+                  "like": "[[concat(parameters('resourceGroupPrefix'), '*')]"
+                }
+              ]
+          },
+          "then": {
+            "effect": "deployIfNotExists",
+            "details": {
+              "type": "Microsoft.Authorization/locks",
+              "roleDefinitionIds": [
+                  "/providers/Microsoft.Authorization/roleDefinitions/00c29273-979b-4161-815c-10b084fb9324",
+                  "/providers/Microsoft.Authorization/roleDefinitions/18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"
+              ],              
+              "existenceCondition": {
+                  "field": "Microsoft.Authorization/locks/level",
+                  "equals": "[[parameters('lockLevel')]"
+              },
+              "deployment": {
+                "properties": {
+                  "mode": "Incremental",
+                  "parameters": {
+                    "lockLevel": {
+                      "value": "[[parameters('lockLevel')]"
+                    }
+                  },
+                  "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                      "lockLevel": {
+                        "type": "string"
+                      }
+                    },
+                    "resources": [
+                      {
+                        "type": "Microsoft.Authorization/locks",
+                        "apiVersion": "2017-04-01",
+                        "name": "Protected",
+                        "properties": {
+                          "level": "[[parameters('lockLevel')]",
+                          "notes": "Resource group lock applied by Azure Policy"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "policyDefinitionId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Authorization/policyDefinitions', variables('name'))]"
+    }
+  }
+}

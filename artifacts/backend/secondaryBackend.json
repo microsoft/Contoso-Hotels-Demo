@@ -1,0 +1,67 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNames": {
+        "type": "object"
+    },
+    "_artifactsLocation": {
+        "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+        "type": "securestring"
+    }
+  },
+  "variables": {
+    "lbTemplateLink": "[concat(parameters('_artifactsLocation'),'common/nlb.json', parameters('_artifactsLocationSasToken'))]"
+  },
+  "resources": [
+    {  
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('resourceNames').secondaryAppBEASetName]",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('resourceNames').secondaryLocation]",
+      "properties": {  
+        "PlatformUpdateDomainCount": 2,
+        "PlatformFaultDomainCount": 2
+      },
+      "sku": {
+        "name": "Aligned"
+      }
+    },
+    {
+      "name": "[concat('Deploy_NLB_', parameters('resourceNames').besecondaryNlbName)]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('lbTemplateLink')]"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('resourceNames').secondaryLocation]"
+          },
+          "name": {
+            "value": "[parameters('resourceNames').beSecondaryNlbName]"
+          },
+          "subnetId": {
+            "value": "[resourceId(parameters('resourceNames').secondaryOpsRGName, 'Microsoft.Network/virtualNetworks/subnets', parameters('resourceNames').secondaryVnetName, parameters('resourceNames').appBESubnetName)]"
+          },
+          "ipAddress": {
+            "value": "[parameters('resourceNames').beSecondaryNlbIp]"
+          },
+          "frontendPort": {
+            "value": 80
+          },
+          "probePort": {
+            "value": 80
+          }
+        }
+      }
+    }
+  ]
+}

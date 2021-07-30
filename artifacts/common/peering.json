@@ -1,0 +1,57 @@
+// Copyright (c) Microsoft Corporation.  
+// Licensed under the MIT license.
+
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "remoteVirtualNetworkName": {
+            "type": "string"
+        },
+        "remoteVirtualNetworkRGName": {
+            "type": "string"
+        },
+        "allowVirtualNetworkAccess": {
+            "type": "bool",
+            "defaultValue": true
+        },
+        "allowForwardedTraffic": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "allowGatewayTransit": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "useRemoteGateways": {
+            "type": "bool",
+            "defaultValue": false
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {  
+            "name":"[parameters('name')]",
+            "type":"Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion":"2020-11-01",
+            "location": "[parameters('location')]",
+            "properties":{  
+                "allowVirtualNetworkAccess": "[parameters('allowVirtualNetworkAccess')]",
+                "allowForwardedTraffic": "[parameters('allowForwardedTraffic')]",
+                "allowGatewayTransit": "[parameters('allowGatewayTransit')]",
+                "useRemoteGateways": "[parameters('useRemoteGateways')]",
+                "remoteVirtualNetwork":{  
+                    "id": "[resourceId(parameters('remoteVirtualNetworkRGName'), 'Microsoft.Network/virtualNetworks' , parameters('remoteVirtualNetworkName'))]"
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

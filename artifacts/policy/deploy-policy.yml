@@ -1,0 +1,127 @@
+# Copyright (c) Microsoft Corporation.  
+# Licensed under the MIT license.
+
+parameters:
+- name: deploy
+  type: boolean
+  default: false
+
+jobs:
+- job: DeployPolicy
+  displayName: Deploy Policy
+  condition: ${{ parameters.deploy }}
+  pool:
+    vmImage: windows-latest
+  variables:
+  - template: deploy-policy.variables.yml
+
+  steps:
+    - task: AzurePowerShell@4
+      displayName: Deploy custom policies
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          $policyDefinitions = Get-ChildItem -Path '$(Build.SourcesDirectory)\artifacts\policy\policyDefinitions' -File
+
+          foreach ($policyDefinition in $policyDefinitions) {
+            $policyDeployment = New-AzDeployment -Location $(location) -TemplateFile $policyDefinition.FullName -Verbose
+          }
+
+    - task: AzurePowerShell@4
+      displayName: Deploy custom initiatives
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          Start-Sleep -Seconds 120
+          
+          $policyDefinitions = Get-ChildItem -Path '$(Build.SourcesDirectory)\artifacts\policy\policySetDefinitions' -File
+
+          foreach ($policyDefinition in $policyDefinitions) {
+            $policyDeployment = New-AzDeployment -Location $(location) -TemplateFile $policyDefinition.FullName -Verbose
+          }
+
+    - task: AzurePowerShell@4
+      displayName: Assign policies
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          Start-Sleep -Seconds 120
+
+          New-AzDeployment -Location $(location) `
+            -TemplateFile '$(Build.SourcesDirectory)\artifacts\policy\assign_policies.json' `
+            -TemplateParameterObject @{
+              resourceNames = $(resourceNames)
+              prefix = '$(prefix)'
+            } -Verbose
+
+    - task: AzurePowerShell@4
+      displayName: Deploy exemptions
+      inputs:
+        azureSubscription: $(azureSubscriptionEndpoint)
+        azurePowerShellVersion: LatestVersion
+        ScriptType: 'InlineScript'
+        Inline: |
+          $exemptions = '$(exemptions)' | ConvertFrom-Json
+
+          foreach ($exemption in $exemptions) {
+
+          try {
+
+              $assignment = Get-AzPolicyAssignment | ? { $_.Properties.DisplayName -eq "$($exemption.assignmentName)" }
+
+              if ($assignment) {
+                $templateParameters = @{
+                  displayName = $exemption.displayName
+                  scope = "$($exemption.resourceScope)"
+                  policyAssignmentId = $assignment.PolicyAssignmentId
+                }
+
+                if (($assignment.Properties.PolicyDefinitionId -match 'policySetDefinitions') -and $exemption.policies) 
+                {
+                  $policySetDefinition = Get-AzPolicySetDefinition -Id $assignment.Properties.PolicyDefinitionId
+
+                  foreach ($policy in $policySetDefinition.Properties.PolicyDefinitions) 
+                  {
+                    $policyDefinition = Get-AzPolicyDefinition -Id $policy.policyDefinitionId
+                    if ($policyDefinition.Properties.DisplayName -in $exemption.policies) {
+                      $templateParameters.policyDefinitionReferenceIds += ,$policy.policyDefinitionReferenceId
+                    }
+                  }
+                }
+
+                $templateParameters
+
+                $deploymentName = "Deploy_policyExemption_$([array]::IndexOf($exemptions, $exemption))_$(Build.BuildNumber)"
+
+                switch -regex ($exemption.deploymentScope)
+                {
+                  'resourceGroups' {
+                    $deploymentScope = $exemption.deploymentScope -split '/'
+                    New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $deploymentScope[1] `
+                      -TemplateFile '$(Build.SourcesDirectory)\artifacts\policy\policyExemption.json' `
+                      -TemplateParameterObject $templateParameters `
+                      -Verbose
+                  }
+                  default
+                  {
+                      New-AzDeployment  -Location $(location) `
+                      -Name $deploymentName `
+                      -TemplateFile '$(Build.SourcesDirectory)\artifacts\policy\policyExemption.json' `
+                      -TemplateParameterObject $templateParameters `
+                      -Verbose
+                  }
+                }
+              }
+            }
+            catch {
+              Write-Host "An error occurred:"
+              Write-Host $_
+            }
+          }
+
